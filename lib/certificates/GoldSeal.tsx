@@ -36,7 +36,13 @@ export function GoldSeal({ size = 112 }: { size?: number }) {
         fill="#5C4009"
         opacity={0.14}
       />
-      <Text x={130} y={104} textAnchor="middle" fontSize={26} fontFamily="Helvetica-Bold" fill="#5C4009">
+      <Text
+        x={130}
+        y={104}
+        textAnchor="middle"
+        fill="#5C4009"
+        style={{ fontSize: 26, fontFamily: 'Helvetica-Bold' }}
+      >
         CERTIFIED
       </Text>
     </Svg>

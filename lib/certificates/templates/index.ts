@@ -12,9 +12,10 @@ import { HexCertificate } from './hex';
 import { SplitCertificate } from './split';
 import { DecoCertificate } from './deco';
 import { HaloCertificate } from './halo';
+import type { ComponentType } from 'react';
 import type { TemplateProps } from '../types';
 
-export const CERTIFICATE_TEMPLATES: Record<string, React.ComponentType<TemplateProps>> = {
+export const CERTIFICATE_TEMPLATES: Record<string, ComponentType<TemplateProps>> = {
   angle: AngleCertificate,
   frame: FrameCertificate,
   block: BlockCertificate,

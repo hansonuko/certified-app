@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Platform UI design tokens (docs/design-system.md §1). This is the app's own
+ * token set — the certificate templates in lib/certificates/ carry their own
+ * fixed colors (never wired to these) so an issuer's brand color can never
+ * bleed into platform chrome, and platform theming can never touch a
+ * certificate.
+ */
+:root {
+  --certified-ink: #0f172a;
+  --certified-navy: #0f2340;
+  --certified-navy-2: #1e3a5f;
+  --certified-gold: #c9992e;
+  --certified-gold-light: #e9c558;
+  --certified-surface: #ffffff;
+  --certified-surface-2: #f8f9fb;
+  --certified-border: #e2e5ea;
+  --certified-muted: #6b7280;
+  --certified-success: #15803d;
+  --certified-danger: #b91c1c;
+  --certified-warning: #b45309;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Playfair Display', Georgia, serif;
+}
+
+body {
+  color: var(--certified-ink);
+  background: var(--certified-surface-2);
+  font-family: var(--font-sans);
+}
+
+/* Motion system (docs/design-system.md §2): every transition respects reduced-motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
