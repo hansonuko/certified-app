@@ -14,7 +14,8 @@ Certified designs the certificate. The issuer supplies the people and the traini
 | `docs/design-system.md` | Visual design system — brand, typography, motion, interaction/hover states, responsive dashboard patterns, certificate templates |
 | `docs/build-phases.md` | Phase-by-phase build plan with Claude Code prompts + account setup checklist |
 | `docs/declaration-form.md` | Individual trainer self-attestation form (NIN path) |
-| `lib/certificates/GoldSeal.tsx` | The mandatory gold seal every certificate carries (react-pdf component, no standalone SVG file) |
+| `lib/certificates/GoldSeal.tsx` | The mandatory gold seal, PDF version (react-pdf component; no standalone SVG file) |
+| `components/GoldSeal.tsx` | The same gold seal, browser version — verification page, badges, marketing site |
 
 ## Stack
 

@@ -78,6 +78,8 @@ The verification-result reveal is the single most important animated moment in t
 
 All ten launch templates share the same underlying philosophy: **a strong geometric accent shape carries the issuer's brand color, set against generous white space, with confident modern typography** — not ornate borders, not clip-art. The gold seal (§5) and QR code are fixed elements across all ten; only the accent geometry, color application, and layout rhythm vary.
 
+No static preview image ships for these templates — there is no `assets/` folder, and a screenshot would just go stale against the live components. The canonical reference is the brand setup wizard's live preview (`/dashboard/brand`, Phase 3 per `docs/build-phases.md`), which renders the issuer's actual chosen template with sample data; read the template descriptions below alongside the component source in `lib/certificates/templates/` for anything a live preview doesn't answer.
+
 **Shared elements across all 10 templates** (non-negotiable, system-enforced):
 - Certified gold seal — bottom-right (or the template's fixed seal position; never moved by the issuer)
 - Verification QR + public ID — positioned so it is never directly beneath the signature block (never two trust marks stacked in one column); centered when the signature is left-aligned, opposite-aligned when the signature is centered
@@ -122,12 +124,13 @@ Each template is a `@react-pdf/renderer` component in `lib/certificates/template
 
 ## 5. The Certified gold seal (spec)
 
-- No standalone SVG asset file — the seal lives only as code, under `lib/certificates/`. There is currently one implementation:
-  - react-pdf component: `lib/certificates/GoldSeal.tsx` — radial foil-gold disc, thin single ring, straight (not arced) "CERTIFIED" lettering in bold serif capitals, with a low-opacity star + ring watermark sitting behind the lettering (not competing with it) at the center. No scalloped edge, no secondary hairline rings, no "VERIFIED TRAINING" subtext — kept to as few visual elements as will still read as a seal. Used for PDF certificate output.
-  - **Open item:** a web-renderable equivalent (for the verification page header, "Approved Issuer" badge, and marketing site) does not exist yet. `GoldSeal.tsx` is built on `@react-pdf/renderer`'s `<Svg>` primitives and cannot render in a browser as-is — a separate web component (plain SVG/React) reproducing the same artwork is still needed before those surfaces can use it. Decide then whether the web version keeps the original arced "CERTIFIED" (via `<textPath>`, which browsers support but react-pdf doesn't) or matches the PDF version's straight lettering for consistency.
+- No standalone SVG asset file — the seal lives only as code, in two parallel implementations kept in sync by hand:
+  - PDF: `lib/certificates/GoldSeal.tsx` — built on `@react-pdf/renderer`'s `<Svg>` primitives, so it only renders inside a react-pdf document, not in a browser. Straight (not arced) "CERTIFIED" lettering, since react-pdf's SVG layer doesn't support `<textPath>`.
+  - Web: `components/GoldSeal.tsx` — plain React + browser SVG, for anywhere outside a PDF: verification page header, "Approved Issuer" badge, marketing site. "CERTIFIED" arcs along the top via a real `<textPath>`, since browsers support it.
+  - Both share the same disc/gradient/ring/watermark: radial foil-gold disc, thin single ring, bold serif "CERTIFIED" lettering, with a low-opacity star + ring watermark sitting behind the lettering (not competing with it) at the center. No scalloped edge, no secondary hairline rings, no "VERIFIED TRAINING" subtext — kept to as few visual elements as will still read as a seal.
 - Colors: warm gold gradient family (`#FCF3D6` → `#EFCB6E` → `#C9992E` → `#8A6212`), fixed — never recolored to match issuer brand.
-- Placement: bottom-right by default (a few templates place it elsewhere per their own layout — Block and Split — but always at a fixed spot per template, never issuer-configurable), fixed size ratio relative to page (~9% of page width), never resized smaller than legibility allows, never rotated, never overlapped by other content.
-- The same artwork is meant to be reused everywhere the platform needs to represent its own trust mark: verification page header, "Approved Issuer" badge, marketing site, and certificate PDFs — see the open item above for what's still missing to make that true outside of PDF output.
+- Placement: bottom-right by default (a few templates place it elsewhere per their own layout — Block and Split — but always at a fixed spot per template, never issuer-configurable), fixed size ratio relative to page (~9% of page width), never resized smaller than legibility allows, never rotated, never overlapped by other content. The size ratio is a certificate-layout rule; standalone badge/header uses of `components/GoldSeal.tsx` aren't held to it.
+- The same artwork is reused everywhere the platform needs to represent its own trust mark: verification page header, "Approved Issuer" badge, marketing site (via `components/GoldSeal.tsx`), and certificate PDFs (via `lib/certificates/GoldSeal.tsx`).
 
 ---
 

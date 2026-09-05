@@ -7,13 +7,14 @@ import { Svg, Circle, Polygon, Text, Defs, RadialGradient, Stop } from '@react-p
  * Reused identically across every certificate template. `size` is the only prop
  * templates should vary, and only within the design system's ~9%-of-page-width rule.
  *
- * Note: there is no separate web SVG asset — this component is the canonical
- * implementation, for PDF output only (built on @react-pdf/renderer's <Svg>
- * primitives, so it can't render in a browser as-is). react-pdf's SVG layer
- * doesn't support <textPath>, so "CERTIFIED" is straight, centered, bold
- * lettering here rather than arced. A web-renderable equivalent for the
- * verification page / marketing site is still an open item — see
- * docs/design-system.md §5.
+ * Note: this is the PDF-only half of the seal. There is no standalone SVG
+ * asset file; the browser equivalent is `components/GoldSeal.tsx`, kept
+ * visually in sync with this one by hand (same disc/gradient/watermark).
+ * This component is built on @react-pdf/renderer's <Svg> primitives, so it
+ * can't render in a browser as-is — that's why the web version is a
+ * separate component. react-pdf's SVG layer also doesn't support
+ * <textPath>, so "CERTIFIED" is straight, centered, bold lettering here
+ * rather than arced (the web version arcs it). See docs/design-system.md §5.
  */
 export function GoldSeal({ size = 112 }: { size?: number }) {
   return (
