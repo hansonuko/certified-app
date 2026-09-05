@@ -3,10 +3,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 /**
  * Refreshes the Supabase auth session on every request that passes through
- * middleware.ts — the standard @supabase/ssr pattern for Next.js App Router.
- * Without this, server components can end up reading a stale/expired session
- * cookie. Does not itself gate any route; route-level auth checks (issuer vs.
- * staff vs. public) live in the routes themselves.
+ * proxy.ts (called Middleware pre-Next.js-16) — the standard @supabase/ssr
+ * pattern for Next.js App Router. Without this, server components can end up
+ * reading a stale/expired session cookie. Does not itself gate any route;
+ * route-level auth checks (issuer vs. staff vs. public) live in the routes
+ * themselves.
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
