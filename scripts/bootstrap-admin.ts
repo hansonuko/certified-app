@@ -16,6 +16,14 @@
  * secret is harmless once an Admin exists, but rotating it is good hygiene
  * anyway. Every further staff account is created through /staff/team by an
  * existing Admin, never through this script again.
+ *
+ * Every early-exit path below sets process.exitCode and returns rather than
+ * calling process.exit() directly — calling process.exit() while the
+ * Supabase client still has an open handle (e.g. right after the very first
+ * network call) can crash Node with a native libuv assertion on Windows
+ * ("Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)") instead of
+ * exiting cleanly. Letting main() return and the event loop drain
+ * naturally avoids that.
  */
 import { createAdminClient } from '../lib/supabase/admin';
 import { assertBootstrapAllowed, BootstrapRefusedError } from './bootstrap-admin-guard';
@@ -39,7 +47,8 @@ async function main() {
 
   if (!name || !email || !password) {
     console.error('Usage: npm run bootstrap:admin -- --name "Jane Doe" --email jane@example.com --password "..." --secret "..."');
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const supabase = createAdminClient();
@@ -53,7 +62,8 @@ async function main() {
 
   if (countError) {
     console.error('Failed to check admin_users count:', countError.message);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   try {
@@ -65,7 +75,8 @@ async function main() {
   } catch (err) {
     if (err instanceof BootstrapRefusedError) {
       console.error(err.message);
-      process.exit(1);
+      process.exitCode = 1;
+      return;
     }
     throw err;
   }
@@ -79,7 +90,8 @@ async function main() {
 
   if (authError || !authUser.user) {
     console.error('Failed to create the Supabase Auth user:', authError?.message);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const { error: insertError } = await supabase.from('admin_users').insert({
@@ -94,7 +106,8 @@ async function main() {
     // Don't leave a dangling Auth user with no admin_users row behind.
     console.error('Failed to insert admin_users row, rolling back the Auth user:', insertError.message);
     await supabase.auth.admin.deleteUser(authUser.user.id);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const { error: auditError } = await supabase.from('audit_log').insert({
