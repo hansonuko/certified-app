@@ -2,11 +2,19 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { GoldSeal } from '@/components/GoldSeal';
+import { ContactForm } from '@/components/ContactForm';
 
 // Issuer public page — docs/blueprint.md §3.5 ("Issuer's own public page
 // lists their training programs + roster of certified trainees, and can
 // also be contacted directly"), docs/sitemap.md's `/directory/org/[slug]`.
 // Public, unauthenticated, SSR.
+//
+// Contact (Phase 6, docs/blueprint.md §6) always shows — unlike the
+// trainee profile, organizations have no contact_visibility toggle at all
+// (there's no "hide contact entirely" concept for an issuer the way there
+// is for a trainee), so the relay is unconditional here. Same
+// lib/contact/actions.ts / components/ContactForm.tsx as the trainee page,
+// branching on target_type — no raw owner_email ever reaches the browser.
 type DirectoryRow = {
   trainee_id: string;
   full_name: string;
@@ -135,16 +143,7 @@ export default async function IssuerPublicPage({ params }: { params: Promise<{ s
         )}
       </section>
 
-      <div className="flex flex-col items-center gap-1 rounded-card border border-certified-border bg-certified-surface-2 p-4 text-center">
-        <button
-          type="button"
-          disabled
-          className="rounded-control bg-certified-navy px-4 py-2 text-sm text-white opacity-40"
-        >
-          Contact {org.display_name}
-        </button>
-        <p className="text-xs text-certified-muted">Contact requests are coming in a later phase.</p>
-      </div>
+      <ContactForm targetType="organization" targetId={org.id} recipientLabel={org.display_name} />
     </main>
   );
 }
