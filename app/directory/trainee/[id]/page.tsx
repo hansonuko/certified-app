@@ -29,6 +29,7 @@ type DirectoryRow = {
   completion_date: string;
   category: string | null;
   issuer_display_name: string;
+  issuer_slug: string;
 };
 
 export default async function TraineeProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -88,7 +89,10 @@ export default async function TraineeProfilePage({ params }: { params: Promise<{
           <div key={cert.public_id} className="flex flex-col gap-1 rounded-card border border-certified-border bg-certified-surface p-4">
             <p className="font-display text-base text-certified-ink">{cert.program_title}</p>
             <p className="flex items-center gap-1.5 text-sm text-certified-muted">
-              Issued by <span className="font-medium text-certified-ink">{cert.issuer_display_name}</span>
+              Issued by{' '}
+              <Link href={`/directory/org/${cert.issuer_slug}`} className="font-medium text-certified-ink underline">
+                {cert.issuer_display_name}
+              </Link>
               <span
                 title="Approved Issuer"
                 className="rounded-full bg-certified-gold/15 px-2 py-0.5 text-xs font-semibold text-certified-gold"
