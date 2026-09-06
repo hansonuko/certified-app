@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { PasswordField } from '@/components/PasswordField';
 
 // Basic issuer/applicant sign-up (docs/build-phases.md Phase 0). The full
 // "choose Business/Training Centre or Individual Trainer" application intake
@@ -76,17 +77,7 @@ export default function SignupPage() {
             className="rounded-control border border-certified-border px-3 py-2"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-certified-ink">
-          Password
-          <input
-            type="password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="rounded-control border border-certified-border px-3 py-2"
-          />
-        </label>
+        <PasswordField label="Password" value={password} onChange={setPassword} required minLength={8} autoComplete="new-password" />
         {error ? <p className="text-sm text-certified-danger">{error}</p> : null}
         <button
           type="submit"

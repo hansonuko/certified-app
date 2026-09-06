@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { PasswordField } from '@/components/PasswordField';
 
 // Separate staff auth surface (docs/roles-permissions.md §5) — email/password
 // only, no Google, so it's easier to apply stricter rate-limiting to this
@@ -60,16 +62,7 @@ export default function StaffLoginPage() {
             className="rounded-control border border-certified-border px-3 py-2 text-certified-ink"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-white">
-          Password
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="rounded-control border border-certified-border px-3 py-2 text-certified-ink"
-          />
-        </label>
+        <PasswordField label="Password" value={password} onChange={setPassword} required autoComplete="current-password" dark />
         {error ? <p className="text-sm text-certified-gold-light">{error}</p> : null}
         <button
           type="submit"
@@ -79,6 +72,9 @@ export default function StaffLoginPage() {
           {loading ? 'Signing in…' : 'Continue'}
         </button>
       </form>
+      <Link href="/staff/login/forgot-password" className="text-sm text-white underline">
+        Forgot password?
+      </Link>
     </main>
   );
 }

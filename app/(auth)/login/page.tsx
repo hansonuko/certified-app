@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { PasswordField } from '@/components/PasswordField';
 
 // Issuer/applicant login — deliberately separate from /staff/login
 // (docs/roles-permissions.md §5), and this page never checks admin_users, so
@@ -54,16 +55,7 @@ export default function LoginPage() {
             className="rounded-control border border-certified-border px-3 py-2"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-certified-ink">
-          Password
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="rounded-control border border-certified-border px-3 py-2"
-          />
-        </label>
+        <PasswordField label="Password" value={password} onChange={setPassword} required autoComplete="current-password" />
         {error ? <p className="text-sm text-certified-danger">{error}</p> : null}
         <button
           type="submit"
