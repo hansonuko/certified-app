@@ -15,7 +15,7 @@ Three internal (staff) roles, following the standard split used across most trus
 | Capability | Admin | Account Manager | Finance |
 |---|:---:|:---:|:---:|
 | Review & decide applications (approve / request info / reject) | ✅ | ✅ | ❌ |
-| View applicant KYC documents (ID, CAC, NIN, declaration) | ✅ | ✅ | ❌ |
+| View applicant KYC documents (identification document, CAC certificate, declaration) | ✅ | ✅ | ❌ |
 | View organization list (read-only, no KYC docs) | ✅ | ✅ | ✅ (limited columns: name, plan, status, usage) |
 | Suspend / reinstate an organization | ✅ | ✅ (with reason, audit-logged) | ❌ |
 | View platform-wide certificates & issuance data | ✅ | ✅ | ✅ (aggregate/statistical view only, not individual PII) |
