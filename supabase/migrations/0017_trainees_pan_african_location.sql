@@ -12,10 +12,14 @@ comment on column trainees.locality is
   'City/district/LGA/municipality-equivalent, free text — see '
   'organizations.address_locality (0016) and lib/geo/africa.ts.';
 
--- trainees_public_view (0009) selected the old column names directly;
--- CREATE OR REPLACE VIEW picks up the rename and adds country to the
--- directory-facing output (Phase 5 will filter by it).
-create or replace view trainees_public_view as
+-- trainees_public_view (0009) selected the old column names directly.
+-- Same issue as organizations_public_view in 0016: CREATE OR REPLACE VIEW
+-- can't rename existing output columns (Postgres 42P16), only append new
+-- ones — state/lga are being renamed here, not just added to. Drop and
+-- recreate instead; the anon/authenticated grant is re-issued right after.
+drop view if exists trainees_public_view;
+
+create view trainees_public_view as
 select
   t.id,
   t.org_id,

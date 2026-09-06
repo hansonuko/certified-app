@@ -42,11 +42,16 @@ comment on column organizations.rc_number is
   'partial unique index, unchanged by this migration).';
 
 -- organizations_public_view (0009) selected the old column names directly
--- as its output — CREATE OR REPLACE VIEW can change the underlying query as
--- long as the output column list/types are compatible, so this both picks
--- up the renamed columns and adds the new country field to the view's own
--- output.
-create or replace view organizations_public_view as
+-- as its output. CREATE OR REPLACE VIEW can only append new output columns
+-- at the end — it refuses to rename or reorder any existing output column
+-- (Postgres 42P16, "cannot change name of view column"), and address_state/
+-- address_lga are being renamed here, not just added to. Drop and recreate
+-- instead (same fix as 0015's verify_certificate() shape change); the
+-- anon/authenticated grant is re-issued right after, since dropping a view
+-- drops privileges granted on it too.
+drop view if exists organizations_public_view;
+
+create view organizations_public_view as
 select
   id,
   display_name,
