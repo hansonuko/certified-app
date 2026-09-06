@@ -4,6 +4,7 @@ import '../fonts';
 import { SERIF, SANS } from '../fonts';
 import { GoldSeal } from '../GoldSeal';
 import { VerificationQr } from '../VerificationQr';
+import { Signature } from '../Signature';
 import { PAGE_WIDTH, PAGE_HEIGHT, TemplateProps } from '../types';
 
 const meta = (d: TemplateProps['data']) => [d.durationLabel, d.dateRangeLabel, d.distinction].filter(Boolean).join('   ·   ');
@@ -25,7 +26,7 @@ export function WaveCertificate({ brand, data }: TemplateProps) {
         <Text style={{ position: 'absolute', left: 0, width: PAGE_WIDTH, textAlign: 'center', top: 406, fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: '#0F172A' }}>{data.programTitle}</Text>
         <Text style={{ position: 'absolute', left: 0, width: PAGE_WIDTH, textAlign: 'center', top: 452, color: '#6B7280', fontSize: 12 }}>{meta(data)}</Text>
         <View style={{ position: 'absolute', left: 80, bottom: 56, width: 220, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.5)', borderTopStyle: 'solid', paddingTop: 12 }}>
-          <Text style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 18, color: '#fff' }}>{brand.signatoryName}</Text>
+          <Signature signatureImageUrl={brand.signatureImageUrl} signatoryName={brand.signatoryName} color="#fff" />
           <Text style={{ fontSize: 10, color: '#E6F0EE' }}>{brand.signatoryTitle}</Text>
         </View>
         <View style={{ position: 'absolute', left: 568, bottom: 56 }}>

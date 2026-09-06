@@ -4,6 +4,7 @@ import '../fonts';
 import { SERIF, SANS } from '../fonts';
 import { GoldSeal } from '../GoldSeal';
 import { VerificationQr } from '../VerificationQr';
+import { Signature } from '../Signature';
 import { PAGE_WIDTH, PAGE_HEIGHT, TemplateProps } from '../types';
 
 const meta = (d: TemplateProps['data']) => [d.durationLabel, d.dateRangeLabel, d.distinction].filter(Boolean).join('   ·   ');
@@ -28,7 +29,7 @@ export function AngleCertificate({ brand, data }: TemplateProps) {
         <Text style={{ position: 'absolute', right: 80, width: 640, textAlign: 'right', top: 360, fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: '#0F2340' }}>{data.programTitle}</Text>
         <Text style={{ position: 'absolute', right: 80, width: 640, textAlign: 'right', top: 406, color: '#6B7280', fontSize: 12 }}>{meta(data)}</Text>
         <View style={{ position: 'absolute', left: 230, bottom: 150, width: 200, borderTopWidth: 1, borderTopColor: '#CBD5E1', borderTopStyle: 'solid', paddingTop: 12 }}>
-          <Text style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 18, color: '#0F172A' }}>{brand.signatoryName}</Text>
+          <Signature signatureImageUrl={brand.signatureImageUrl} signatoryName={brand.signatoryName} />
           <Text style={{ fontSize: 10, color: '#6B7280' }}>{brand.signatoryTitle}</Text>
         </View>
         <View style={{ position: 'absolute', left: 600, bottom: 56 }}>
