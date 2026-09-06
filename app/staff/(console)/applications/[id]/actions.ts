@@ -47,7 +47,7 @@ async function decide(applicationId: string, decision: Decision, reason: string)
 
   const { data: application } = await supabase
     .from('applications')
-    .select('id, org_id, decision_history, organizations!inner(display_name, owner_email)')
+    .select('id, org_id, decision_history, submitted_data, organizations!inner(display_name, owner_email)')
     .eq('id', applicationId)
     .maybeSingle();
 
@@ -58,11 +58,27 @@ async function decide(applicationId: string, decision: Decision, reason: string)
   const decisionEntry = { agent_id: userId, action: decision, reason: reason || undefined, at: new Date().toISOString() };
   const newHistory = [...((application.decision_history as unknown[]) ?? []), decisionEntry];
 
+  // On approval, the application's own training_fields/training_description
+  // become the org's public training profile (docs/blueprint.md §3.1 point
+  // 2 — "this becomes the public 'training profile'"), copied onto
+  // organizations.bio/training_fields (supabase/migrations/0019) rather
+  // than the public issuer page reading applications.submitted_data
+  // directly (that table isn't anon-readable, and an approved org's public
+  // profile shouldn't depend on its original application row's shape).
+  const submittedData = application.submitted_data as { training_fields?: string; training_description?: string } | null;
+
   const { error: orgError } = await supabase
     .from('organizations')
     .update({
       status: decision,
-      ...(decision === 'approved' ? { approved_at: new Date().toISOString(), approved_by: userId } : {}),
+      ...(decision === 'approved'
+        ? {
+            approved_at: new Date().toISOString(),
+            approved_by: userId,
+            training_fields: submittedData?.training_fields ?? null,
+            bio: submittedData?.training_description ?? null,
+          }
+        : {}),
     })
     .eq('id', application.org_id);
 

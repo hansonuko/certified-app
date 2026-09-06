@@ -5,6 +5,7 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { verifyAltchaSolution } from '@/lib/altcha/server';
 import { uploadApplicationDocument } from '@/lib/storage/application-documents';
+import { generateOrgSlug } from '@/lib/slug';
 
 export type ApplyFormState = { error: string } | null;
 
@@ -97,37 +98,66 @@ export async function submitApplication(_prevState: ApplyFormState, formData: Fo
   const hdrs = await headers();
   const submissionIp = hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null;
 
-  const { data: org, error: orgError } = await supabase
-    .from('organizations')
-    .insert({
-      owner_user_id: user.id,
-      type: applicantType,
-      legal_name: legalName,
-      display_name: displayName,
-      rc_number: rcNumber,
-      address_street: addressStreet,
-      address_country: addressCountry,
-      address_region: addressRegion,
-      address_locality: addressLocality,
-      owner_full_name: ownerFullName,
-      owner_phone: ownerPhone,
-      owner_email: ownerEmail,
-      owner_id_document_url: identificationPath,
-      proof_of_operation_url: proofOfOperationPath,
-      trainee_volume_band: volumeBand,
-      status: 'pending',
-      ...(!isBusiness
-        ? {
-            owner_declaration_signed_at: new Date().toISOString(),
-            declaration_version: declarationVersion,
-            declaration_submission_ip: submissionIp,
-          }
-        : {}),
-    })
-    .select('id')
-    .single();
+  // slug is the org's public-page URL (/directory/org/[slug],
+  // supabase/migrations/0019) — generated here rather than left to be set
+  // later, same "assign the permanent identifier at creation" pattern as
+  // certificate public_id (lib/certificates/public-id.ts). display_name
+  // isn't unique, so a collision on the generated slug is possible (if
+  // vanishingly likely thanks to the random suffix); retry with a fresh
+  // one rather than failing the whole application on that specific error.
+  const MAX_SLUG_ATTEMPTS = 5;
+  let org: { id: string } | null = null;
+  let orgError: { code?: string; message: string } | null = null;
 
-  if (orgError || !org) {
+  for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS && !org; attempt++) {
+    const result = await supabase
+      .from('organizations')
+      .insert({
+        owner_user_id: user.id,
+        type: applicantType,
+        legal_name: legalName,
+        display_name: displayName,
+        rc_number: rcNumber,
+        address_street: addressStreet,
+        address_country: addressCountry,
+        address_region: addressRegion,
+        address_locality: addressLocality,
+        owner_full_name: ownerFullName,
+        owner_phone: ownerPhone,
+        owner_email: ownerEmail,
+        owner_id_document_url: identificationPath,
+        proof_of_operation_url: proofOfOperationPath,
+        trainee_volume_band: volumeBand,
+        slug: generateOrgSlug(displayName),
+        status: 'pending',
+        ...(!isBusiness
+          ? {
+              owner_declaration_signed_at: new Date().toISOString(),
+              declaration_version: declarationVersion,
+              declaration_submission_ip: submissionIp,
+            }
+          : {}),
+      })
+      .select('id')
+      .single();
+
+    if (result.data) {
+      org = result.data;
+    } else {
+      orgError = result.error;
+      // Only retry on a slug collision specifically — a 23505 on
+      // rc_number's own unique index (a genuine duplicate business
+      // registration number, 0010) would otherwise retry pointlessly
+      // against the same conflict every time and mask the real problem.
+      const isSlugCollision = result.error?.code === '23505' && result.error.message.includes('organizations_slug_key');
+      if (!isSlugCollision) break;
+    }
+  }
+
+  if (!org) {
+    if (orgError?.code === '23505' && orgError.message.includes('rc_number')) {
+      return { error: 'That business registration number is already registered on Certified Africa.' };
+    }
     return { error: `Could not create your organization: ${orgError?.message ?? 'unknown error'}` };
   }
 
