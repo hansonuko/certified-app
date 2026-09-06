@@ -3,6 +3,9 @@ import { issueCertificate, formatDateRangeLabel, addMonthsToDate } from '@/lib/c
 import type { BrandConfig } from '@/lib/certificates/types';
 import type { TemplateId } from '@/lib/certificates/templates';
 import type { BulkRow } from './validate';
+import { generateClaimToken, claimTokenExpiresAt } from '@/lib/trainees/claim-token';
+import { claimProfileEmail } from '@/lib/email/claim-templates';
+import { sendEmail } from '@/lib/email/send';
 
 /**
  * Advances one bulk-issuance job by up to ROWS_PER_TICK rows (docs/build-
@@ -144,13 +147,27 @@ export async function advanceJob(admin: SupabaseClient, jobId: string): Promise<
             country: row.country,
             region: row.region,
             locality: row.locality,
+            claim_token: generateClaimToken(),
+            claim_token_expires_at: claimTokenExpiresAt(),
           })
-          .select('id')
+          .select('id, claim_token')
           .single();
 
         if (traineeError || !trainee) {
           newResults.push({ rowIndex: row.rowIndex, status: 'failed', error: traineeError?.message ?? 'Could not create trainee record.' });
           continue;
+        }
+
+        // Best-effort, same as the single-entry action — most bulk rows have
+        // no email at all, and a send failure shouldn't fail the row's
+        // certificate issuance (docs/build-phases.md Phase 8).
+        if (row.email && trainee.claim_token) {
+          const claimUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/claim/${trainee.claim_token}`;
+          try {
+            await sendEmail({ to: row.email, ...claimProfileEmail({ traineeName: row.full_name, orgName: org.display_name, claimUrl }) });
+          } catch (err) {
+            console.error('Claim-link email failed to send:', err);
+          }
         }
 
         const expiryDate = program.certificate_validity_months
