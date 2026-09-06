@@ -1,4 +1,4 @@
-# Certified — Internal Roles, Permissions & Super Admin Bootstrap
+# Certified Africa — Internal Roles, Permissions & Super Admin Bootstrap
 
 Three internal (staff) roles, following the standard split used across most trust/marketplace/B2B admin panels (Stripe, HubSpot, Recurly, and similar all separate "operations who can approve/moderate" from "finance who can bill/report" from "owner who configures everything") — no single non-owner role should be able to both approve issuers *and* touch money/system config.
 

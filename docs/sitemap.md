@@ -1,4 +1,4 @@
-# Certified — Full Sitemap & Page Inventory
+# Certified Africa — Full Sitemap & Page Inventory
 
 Every route in the product, grouped by area, with who can access it and what it needs to do. This is the checklist against which "is the build complete" gets judged — if a page below doesn't exist yet, the build isn't done.
 
@@ -28,7 +28,7 @@ Legend: 🌐 public/no-auth · 🔒 authenticated · role tags where relevant (*
 |---|---|---|
 | `/verify` | Manual verify | Enter a public ID manually, or prompt to scan a QR |
 | `/verify/[public_id]` | Verification result | The core trust moment — status, issuer, trainee, program, animated reveal per design-system §2 |
-| `/directory` | Directory search | Filter by field, state/LGA, issuer, date range, open-to-hire |
+| `/directory` | Directory search | Filter by field, country/region/locality, issuer, date range, open-to-hire |
 | `/directory/trainee/[id]` | Trainee public profile | Bio, photo, certificate(s), issuer, gated contact action |
 | `/directory/org/[slug]` | Issuer public profile | Org bio, training programs, trainee roster, contact action |
 
@@ -69,7 +69,7 @@ Legend: 🌐 public/no-auth · 🔒 authenticated · role tags where relevant (*
 | `/dashboard/settings` | Account settings | Profile, password, 2FA |
 | `/dashboard/settings/team` | Team (deferred) | Multi-user issuer accounts — placeholder page noting "coming soon," flagged deferred in blueprint §10 |
 | `/dashboard/billing` | Billing (deferred) | "You're on the Free plan" placeholder; real billing UI ships with monetization |
-| `/dashboard/help` | Help/support | Contact Certified, FAQ links |
+| `/dashboard/help` | Help/support | Contact Certified Africa, FAQ links |
 
 ## 6. Staff console (🔒 internal only, path prefix `/staff`, role-gated per row)
 

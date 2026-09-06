@@ -1,8 +1,8 @@
-# Certified — Design System v1.0
+# Certified Africa — Design System v1.0
 
 Two design systems live in this product, and they must stay visually distinct:
 
-1. **The Certified platform UI** — the app itself (dashboards, directory, admin console, marketing pages). Modern, bold, motion-forward.
+1. **The Certified Africa platform UI** — the app itself (dashboards, directory, admin console, marketing pages). Modern, bold, motion-forward.
 2. **The certificate templates** — what gets printed/PDF'd. Restrained and classy by design (the product is credibility, not decoration), but rendered in a bold-accent modern style per the confirmed direction.
 
 ---
@@ -45,7 +45,7 @@ Navy is the platform's dominant brand color; gold is reserved for the seal, veri
 
 ## 2. Motion system
 
-Certified should feel current — subtle, physics-based motion, never gratuitous.
+Certified Africa should feel current — subtle, physics-based motion, never gratuitous.
 
 | Interaction | Motion | Duration / easing |
 |---|---|---|

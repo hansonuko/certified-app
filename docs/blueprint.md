@@ -1,15 +1,15 @@
-# Certified — Platform Blueprint v1.0
+# Certified Africa — Platform Blueprint v1.0
 
 **Tagline concept:** "Every certificate, verifiable in seconds."
 
-A trust infrastructure layer for training providers: Certified designs and issues branded certificates on behalf of approved trainers/businesses, gives every certificate a cryptographically verifiable public record, and turns certified trainees into a searchable, hireable public directory.
+A trust infrastructure layer for training providers across Africa: Certified Africa designs and issues branded certificates on behalf of approved trainers/businesses, gives every certificate a cryptographically verifiable public record, and turns certified trainees into a searchable, hireable public directory.
 
 ---
 
 ## 1. Product Pillars
 
 1. **Issuer Trust Layer** — Businesses/trainers must apply and be approved (KYC-style review) before they can issue anything. This is what makes a "Certified" badge mean something.
-2. **Certificate Design & Generation** — Certified designs the certificate (brand-consistent, reusable per issuer) — issuer never touches design tools. *Custom-upload of pre-designed certificates is explicitly a Phase 2 feature (see §10) — not in v1 launch scope.*
+2. **Certificate Design & Generation** — Certified Africa designs the certificate (brand-consistent, reusable per issuer) — issuer never touches design tools. *Custom-upload of pre-designed certificates is explicitly a Phase 2 feature (see §10) — not in v1 launch scope.*
 3. **Verification** — Any certificate, or any certified individual, can be looked up and cryptographically confirmed authentic, non-forgeable, and revocable.
 4. **Public Directory & Hire Layer** — The public can discover certified people by skill + location, and contact them or their issuing trainer directly.
 
@@ -26,7 +26,7 @@ A trust infrastructure layer for training providers: Certified designs and issue
 
 ### Internal (staff) roles
 
-Certified's internal team is not one undifferentiated "admin" — it's three roles with different scopes, mirroring how most trust/marketplace platforms separate operations from finance so no single non-owner role can touch everything:
+Certified Africa's internal team is not one undifferentiated "admin" — it's three roles with different scopes, mirroring how most trust/marketplace platforms separate operations from finance so no single non-owner role can touch everything:
 
 | Role | Scope (one line) |
 |---|---|
@@ -45,11 +45,11 @@ Full permission matrix, the reasoning behind the split, and the **super admin bo
 
 1. Applicant signs up (email or Google via Supabase Auth) → chooses "Business/Training Centre" or "Individual Trainer".
 2. Fills structured application:
-   - Legal/registered name, RC number (CAC for Nigerian entities) — **optional**, since individual trainers without a registered business leave this blank
+   - Legal/registered name, business registration number (e.g. RC/CAC for Nigerian entities, or the equivalent registration elsewhere) — **optional**, since individual trainers without a registered business leave this blank
    - Identification document upload — any means of identification (business/work ID card, government-issued ID, etc.), required for both applicant types
    - Proof of operation: CAC certificate upload — required for Business/Training Centre applicants; optional for Individual Trainers, who typically won't have one
    - **For Individual Trainers only: a signed declaration form** (self-attestation of the training they claim to deliver, plus consequences of false declaration stated plainly on the form) — referencing the identification document uploaded above, not a national ID number
-   - Business address + state/LGA (structured, not free text — see §7)
+   - Business address + country/region/locality (structured where the platform supports it — see §7)
    - Owner/contact full legal name, phone, email — someone reachable, not just a name
    - Expected trainee volume this year, banded: 0-5 / 6-15 / 16-29 / 30+
    - Field(s) of training they intend to certify in
@@ -62,7 +62,7 @@ Full permission matrix, the reasoning behind the split, and the **super admin bo
 5. All decisions are **audit-logged** (agent id, timestamp, reason, before/after state) — never silently overwritten.
 
 ### 3.2 Brand Setup (post-approval)
-- Issuer picks from a set of Certified-designed certificate templates (v1: e.g. 4–6 "lightweight modern classy" layouts — minimalist border, single accent color, serif/sans title pairing, subtle seal/emblem placeholder).
+- Issuer picks from a set of Certified Africa-designed certificate templates (v1: e.g. 4–6 "lightweight modern classy" layouts — minimalist border, single accent color, serif/sans title pairing, subtle seal/emblem placeholder).
 - Issuer sets: primary brand color, logo upload, signatory name + title, signature image (upload or type in a script font), issuing body full name as it should appear.
 - This brand config is stored once and reused for every certificate generated for that issuer — **consistency enforced by the system**, issuer cannot deviate per-certificate (prevents brand/format chaos and keeps output "classy" by design).
 
@@ -103,13 +103,16 @@ Every issuance:
 ```
 Organization (issuer)
   id, type[business|individual], legal_name, display_name,
-  rc_number (optional — CAC/business registration; individual trainers without one leave this blank),
-  proof_of_operation_url (CAC certificate upload — business applicants; optional for individuals),
+  rc_number (optional — business registration number, e.g. CAC in Nigeria
+             or the equivalent elsewhere; individual trainers without one
+             leave this blank),
+  proof_of_operation_url (business registration certificate upload, e.g.
+             CAC in Nigeria — business applicants; optional for individuals),
   trainee_volume_band[0-5|6-15|16-29|30+] (expected trainees per year),
   status[pending|more_info_requested|approved|rejected|suspended],
   brand: { logo_url, primary_color, template_id, signatory_name,
            signatory_title, signature_image_url },
-  address: { state, lga, street (private), geo (optional, future) },
+  address: { country, region, locality, street (private), geo (optional, future) },
   owner: { full_name, phone, email, id_document_url (any means of
            identification — business/work ID card, government ID, etc.),
            declaration_signed_at, declaration_version, declaration_submission_ip
@@ -127,7 +130,7 @@ TrainingProgram
 Trainee (public directory profile)
   id, org_id, program_id, full_name, photo_url, bio, phone, email,
   contact_visibility[public|gated|hidden], open_to_hire (bool),
-  state, lga, claimed (bool), claim_token, created_at
+  country, region, locality, claimed (bool), claim_token, created_at
 
 Certificate
   id, public_id (random, indexed), trainee_id, org_id, program_id,
@@ -161,7 +164,7 @@ Key design choice: **Certificate stores snapshots** of trainee name / program ti
 
 ### 5.1 Certified Gold Seal (mandatory, every certificate)
 - Every certificate — regardless of template or issuer brand color — carries a **fixed gold seal element bearing "Certified"** (wordmark/emblem, e.g. a circular foil-style seal in the platform's gold, not the issuer's brand color). This is non-configurable by issuers.
-- Function: it's the platform's own trust mark, distinct from the issuer's branding — the seal is what a viewer recognizes at a glance as "this came through Certified's verification system," independent of which business issued it.
+- Function: it's the platform's own trust mark, distinct from the issuer's branding — the seal is what a viewer recognizes at a glance as "this came through Certified Africa's verification system," independent of which business issued it.
 - Design notes: render as a vector graphic (not a raster gold-gradient image, to keep file size small and stay crisp at print size) — a radial foil-gold disc with a thin ring, a low-opacity star watermark at center, and bold "CERTIFIED" lettering placed at a fixed spot per template (bottom-right on most; see `docs/design-system.md` §5 for the two templates that place it elsewhere) across all 10 templates.
 - The seal sits **next to, not on top of,** the QR code — both are trust signals but serve different purposes (seal = visual brand recognition, QR = the actual verifiable link). Never let the seal substitute for or obscure the QR/public ID.
 - Because it's identical across every issuer, it also becomes a mild anti-forgery aid: a certificate *without* it, or with a poorly-reproduced version of it, is an immediate visual red flag — a lightweight, human-readable signal on top of the cryptographic one.
@@ -176,10 +179,10 @@ This is the part that decides whether "Certified" actually earns trust. Going th
 |---|---|
 | **Fake business applies to get "verified" status** | Mandatory CAC/ID document upload + human agent review before any issuance capability unlocks. Nothing is auto-approved in v1. |
 | **Certificate ID guessing / enumeration** | Public IDs are random (not sequential integers), rate-limited lookup endpoint (Upstash Redis, e.g. 10 lookups/min/IP), no bulk-listing endpoint of all certificate IDs. |
-| **Certificate forgery (fake PDF claiming to be from Certified)** | The PDF itself is not the source of truth — the QR always resolves to the live database record. Verification page, not the PDF file, is authoritative. Optionally embed the signature hash as visible small print on the cert so a savvy checker can cross-reference. |
+| **Certificate forgery (fake PDF claiming to be from Certified Africa)** | The PDF itself is not the source of truth — the QR always resolves to the live database record. Verification page, not the PDF file, is authoritative. Optionally embed the signature hash as visible small print on the cert so a savvy checker can cross-reference. |
 | **Tampering with a stored certificate record (DB-level)** | HMAC/Ed25519 signature computed over core fields at issuance, stored separately, re-validated on every verify request — a direct DB edit without going through the signing service invalidates the signature and flips status to "integrity check failed." |
 | **Issuer account compromise → mass-issuing fraudulent certs** | 2FA required for issuer accounts (Supabase Auth supports TOTP), anomaly alerts on unusual issuance volume/spikes, agent can freeze an org instantly. |
-| **Trainee data used without consent** | Explicit consent checkbox at trainee-add time captured by the issuer ("I confirm this trainee has consented to a public profile"); trainee gets an email with a claim link to edit/hide/delete their own profile at any time — this is also your NDPR (Nigeria Data Protection Act) compliance hook. |
+| **Trainee data used without consent** | Explicit consent checkbox at trainee-add time captured by the issuer ("I confirm this trainee has consented to a public profile"); trainee gets an email with a claim link to edit/hide/delete their own profile at any time — this is also your data-protection-law compliance hook (e.g. Nigeria's NDPA 2023, or the equivalent law in the trainee's own country). |
 | **Public contact info scraped/harvested** | Never render raw phone/email in page HTML for unauthenticated users; "Reveal contact" action is rate-limited + optionally requires a lightweight CAPTCHA (Altcha — self-hosted, free) after N reveals per IP/session; alternative is an in-app message relay so contact info is never exposed at all (recommended default). |
 | **Fake/duplicate trainee profiles to inflate an issuer's roster** | Certificates are the only thing that creates a directory entry — no "add trainee" without a linked certificate, and duplicate detection (name + org + program + date) flags likely dupes for agent review. |
 | **Sybil applications (one bad actor, many shell "orgs")** | RC number is checked for uniqueness across the platform when present; since it's optional (individual trainers may not have one) and resubmission has no cooldown, repeated applications from the same RC number, identification document, or device fingerprint are surfaced to the agent as a visible history on the review screen, not blocked outright — keeps the door open for genuine fast-fixers while giving agents the context to catch abuse. |
@@ -193,7 +196,13 @@ This is the part that decides whether "Certified" actually earns trust. Going th
 
 ## 7. Location Data Approach
 
-For v1, use **structured Nigerian State → LGA dropdowns** (a static JSON list) rather than full geolocation/PostGIS — simpler, free, zero API cost, and matches how people naturally search ("trainers in Uyo" vs. lat/long "near me"). Optional lat/long "near me" search is a good Phase 2 addition once there's directory density to justify it (flagged in §10).
+Certified Africa operates pan-continentally, so location can't assume one country's administrative structure — Nigeria's State/LGA model doesn't generalize to Ghana's Region/District, Kenya's County, South Africa's Province/Municipality, and so on. v1's approach, three tiers (`lib/geo/africa.ts`):
+
+- **Country** — a real, structured dropdown covering all 54 AU/UN-recognized African states. Small, stable, zero API cost.
+- **Region** (state/province/region/county — whatever the country calls it) — structured dropdowns for the countries the platform is actually operating in first (Nigeria, Ghana, Kenya, South Africa); a free-text field, generically labeled ("State / Region / Province"), everywhere else. Expand country-by-country as issuers in that country actually sign up, rather than trying to source and maintain accurate first-level administrative-division data for all 54 countries up front.
+- **Locality** (LGA/district/municipality/ward-equivalent) — free text everywhere, including the four priority countries. This tier runs into the thousands of entries per country (774 Nigerian LGAs alone) — a much larger, ongoing data-sourcing effort than v1 takes on.
+
+Full geolocation/PostGIS ("near me" search) remains a good Phase 2 addition once there's directory density to justify it in a given country (flagged in §10).
 
 ---
 
@@ -221,7 +230,7 @@ This whole stack has a genuine $0 floor at launch scale and scales gracefully �
 
 ## 9. Suggested Build Phases
 
-- **Phase 0** — Repo setup, design tokens/brand system for Certified itself, Supabase schema + RLS policies, auth scaffolding
+- **Phase 0** — Repo setup, design tokens/brand system for Certified Africa itself, Supabase schema + RLS policies, auth scaffolding
 - **Phase 1** — Applicant onboarding + application form + document upload
 - **Phase 2** — Admin console: review queue, approve/request-info/reject flow, audit log
 - **Phase 3** — Issuer brand setup wizard + template selection
@@ -237,7 +246,7 @@ This whole stack has a genuine $0 floor at launch scale and scales gracefully �
 
 ## 10. Explicitly Deferred to Future Development (captured, not built at v1)
 
-- **Custom certificate upload** — issuer supplies their own pre-designed certificate (PDF/image), Certified overlays verification data (QR + public ID) onto it rather than generating from a template. Requires: file validation, overlay-positioning UI (drag QR/ID placement), and a review step to prevent brand impersonation risk.
+- **Custom certificate upload** — issuer supplies their own pre-designed certificate (PDF/image), Certified Africa overlays verification data (QR + public ID) onto it rather than generating from a template. Requires: file validation, overlay-positioning UI (drag QR/ID placement), and a review step to prevent brand impersonation risk.
 - Geolocation-based "near me" search (lat/long, PostGIS)
 - Trainee self-registration to request certification directly from an issuer (currently issuer-initiated only)
 - Multi-language support (English/Pidgin/local languages)
@@ -258,6 +267,7 @@ This whole stack has a genuine $0 floor at launch scale and scales gracefully �
 5. **Certificate expiry** — supported as an issuer-level, per-program option (off by default, opt-in for fields like safety recertification).
 6. **Launch templates** — 10 templates (Angle, Frame, Block, Ribbon, Monogram, Wave, Hex, Split, Deco, Halo — see `docs/design-system.md` §4), each carrying the gold seal.
 7. **Gold seal artwork** — finalized: radial foil-gold disc, single thin ring, low-opacity center watermark, bold "CERTIFIED" lettering. See `docs/design-system.md` §5.
+8. **Pan-African scope, "Certified Africa" rebrand** (2026-09) — the product operates across Africa, not Nigeria-only. Location data is Country (structured, all 54 AU/UN-recognized states) + Region (structured for the priority countries — Nigeria, Ghana, Kenya, South Africa — free text elsewhere) + Locality (free text everywhere) — see §7 and `lib/geo/africa.ts`. The gold seal's own wordmark deliberately stays the shorter "CERTIFIED" (§5.1) rather than changing to match the company name — the trust mark and the company name are allowed to differ, and changing the seal would mean reworking fixed-position artwork already built across all 10 templates for no functional gain.
 
 ## Next to Decide
 
