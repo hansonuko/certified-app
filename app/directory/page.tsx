@@ -184,7 +184,7 @@ function TraineeDirectoryCard({ card }: { card: TraineeCard }) {
 
   return (
     <Link
-      href={`/directory/${card.traineeId}`}
+      href={`/directory/trainee/${card.traineeId}`}
       className="flex flex-col gap-3 rounded-card border border-certified-border bg-certified-surface p-5 transition hover:border-certified-gold hover:shadow-sm"
     >
       <div className="flex items-center gap-3">
