@@ -49,7 +49,12 @@ insert into storage.buckets (id, name, public)
 values ('application-documents', 'application-documents', false)
 on conflict (id) do nothing;
 
-alter table storage.objects enable row level security;
+-- storage.objects already has RLS enabled by default on every Supabase
+-- project (it's owned by supabase_storage_admin, not the role migrations
+-- run as) — trying to ALTER TABLE ... ENABLE ROW LEVEL SECURITY on it here
+-- fails with "must be owner of table objects" even though RLS is already
+-- on. CREATE POLICY below doesn't need table ownership, just the grants
+-- Supabase already sets up for this exact pattern.
 
 -- Applicants upload under a path prefixed with their own auth uid
 -- (org_id doesn't exist yet at first-upload time — the Organization and
