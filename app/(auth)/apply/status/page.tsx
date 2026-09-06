@@ -24,6 +24,10 @@ export default async function ApplyStatusPage() {
     .maybeSingle();
 
   if (!org) redirect('/apply');
+  // Phase 3 gave approved issuers a real dashboard — no reason to stop here
+  // first every time they log in (this page's own "check back soon" copy
+  // below was written before that existed).
+  if (org.status === 'approved') redirect('/dashboard');
 
   const { data: application } = await supabase
     .from('applications')
@@ -58,12 +62,6 @@ export default async function ApplyStatusPage() {
             You can reapply immediately — there is no cooldown period.
           </p>
         </div>
-      ) : null}
-
-      {org.status === 'approved' ? (
-        <p className="text-certified-success">
-          You&apos;re approved! Brand setup and certificate templates are a later phase — check back soon.
-        </p>
       ) : null}
 
       {org.status === 'pending' ? (
