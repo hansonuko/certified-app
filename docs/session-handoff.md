@@ -5,7 +5,8 @@ verified, what's still open. Read this alongside `docs/build-phases.md`
 (the plan) before starting a new phase; this doc is the "what actually
 happened" complement to that plan.
 
-**Last updated:** 2026-09-06, after Phase 3 merged (PR #6).
+**Last updated:** 2026-09-06, after Phase 3 merged (PR #6) + first production
+deploy fixed (see §8).
 
 ---
 
@@ -27,6 +28,11 @@ clean (`npx tsc --noEmit`, `npm run build`) as of `7c9037c`.
 ---
 
 ## 2. Live infrastructure
+
+**Vercel (production)**: https://certified-app-lime.vercel.app — live and
+working as of this update. See §8 for what broke on first deploy and how
+it was fixed; production has its own `CERTIFICATE_SIGNING_SECRET` and
+`ALTCHA_HMAC_SECRET`, deliberately different from `.env.local`'s.
 
 **Supabase project**: `wvcvzeybvloamkkghckp` (hosted, not local — no Docker/
 Supabase CLI in this environment, so `supabase start` was never used; every
@@ -182,3 +188,65 @@ repeatedly during the session and not yet acted on.
 **Phase 4 — Certificate issuance & verification** (`docs/build-phases.md`).
 Read that phase's prompt in full before starting; check §3 items 2 and 3
 above first, since both bear directly on how issuance should be built.
+
+---
+
+## 8. Production deployment (first deploy, done outside the normal phase flow)
+
+The user deployed to Vercel themselves (per `CLAUDE.md`'s free-tier
+discipline, this was never triggered as a side effect of finishing a
+phase). First deploy came up with every request 500ing.
+
+**Root cause**: the Vercel project (`certified-app`, team `sun-media2`,
+project id `prj_ZKlYqNYCsR4fXio6qk80hIdBdieu`) had all 12 env vars
+registered by name but every single value was empty — so every Supabase
+client construction failed at runtime. Fixed via the Vercel API (user
+provided a token) — set real values for `NEXT_PUBLIC_APP_URL` (the
+project's stable alias, `https://certified-app-lime.vercel.app`),
+`NEXT_PUBLIC_APP_ENV=production`, the three Supabase vars (same hosted
+project as local dev — has to match), `RESEND_API_KEY`/`RESEND_FROM_EMAIL`
+(same Resend account as local dev). Generated **fresh, production-only**
+secrets for `CERTIFICATE_SIGNING_SECRET` and `ALTCHA_HMAC_SECRET` rather
+than reusing the local dev ones — deliberate separation, not an oversight
+if the values differ from `.env.local`. Left `UPSTASH_REDIS_REST_URL`/
+`TOKEN` empty (still no real credentials, see §2/§3) and
+`ADMIN_BOOTSTRAP_SECRET` empty (intentionally retired, see §2). Then
+triggered a fresh production deployment via the API (env var changes
+don't apply to an already-built deployment — `NEXT_PUBLIC_*` vars
+specifically are baked in at build time) and confirmed `/`, `/login`,
+`/staff/login` all return 200 on the live URL.
+
+**If a future deploy breaks again**: check the Vercel project's env vars
+first, via the dashboard or `GET /v9/projects/{id}` with a token — an
+empty-but-present var looks identical to "not configured" at a glance and
+is easy to miss.
+
+## 9. MFA incident — don't repeat this
+
+While verifying the Phase 0/2/2.5 staff flows earlier in the build, I
+enrolled and verified a real TOTP factor on the actual bootstrap Admin
+account (Hanson Uko) to test the enrollment UI end-to-end, computing
+valid codes myself from the secret rather than using a physical
+authenticator app. That verified factor stayed on the account afterward.
+When the real user tried to log in for the first time, the flow correctly
+detected an existing verified factor and asked for a code — which they
+had no way to produce, since they never actually scanned that QR into
+their own device.
+
+This isn't a bug in `requireStaffSession()`/the login flow — it worked
+exactly as designed. It's a side effect of testing against a real
+production account instead of a disposable one. **Lesson for future
+sessions**: for any MFA-touching test, use a disposable test staff
+account (as was already done for the Account Manager/Finance role tests
+in Phase 2/2.5) — never the real bootstrap Admin — or if a real account's
+flow genuinely needs testing, warn the user immediately afterward that a
+test factor was left on it and needs clearing before their first real
+login.
+
+Fix: user clears the stale factor via Supabase Dashboard → Authentication
+→ Users → their account → MFA factors, then enrolls fresh with their own
+authenticator app. (I attempted to clear it programmatically via
+`supabase.auth.admin.mfa.deleteFactor` — blocked by this environment's
+safety classifier, since deleting an auth factor autonomously is a
+sensitive action. That block was correct; doing it by hand in the
+Dashboard is the right path here.)
