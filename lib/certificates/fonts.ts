@@ -1,31 +1,42 @@
 // Registers the certificate typography (Playfair Display serif + Inter sans,
-// docs/design-system.md §1) with react-pdf. react-pdf needs real font FILES, not a
-// <link> tag — drop the .ttf files below into /public/fonts (or point src at wherever
-// you're serving them from) and every template picks them up automatically.
+// docs/design-system.md §1) with react-pdf. The .ttf files live in
+// /public/fonts (docs/build-phases.md Phase 3).
 //
-// Until the files are added this is a no-op at render time and react-pdf silently
-// falls back to its built-in Helvetica/Times-Roman, so nothing breaks — text just
-// isn't on-brand yet. Import this module once per template (side-effect import) rather
-// than calling Font.register redundantly in every file.
+// react-pdf's font loader always fetches src by URL/path, even for local
+// files — a browser-side render (the brand wizard's <PDFViewer>, Phase 3)
+// can get away with a page-relative path like '/fonts/Inter-Regular.ttf'
+// because the browser resolves it against the current origin. Server-side
+// (a Vercel function rendering a certificate PDF at issuance, Phase 4) has no
+// such origin to resolve against — a relative path there fails to fetch and
+// react-pdf silently falls back to Helvetica/Times-Roman. Building an
+// absolute URL from NEXT_PUBLIC_APP_URL fixes both cases identically: it's
+// still same-origin from a browser's perspective, and it's a real fetchable
+// URL from Node.
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+function fontUrl(filename: string): string {
+  return `${APP_URL}/fonts/${filename}`;
+}
+
 import { Font } from '@react-pdf/renderer';
 
 Font.register({
   family: 'Playfair Display',
   fonts: [
-    { src: '/fonts/PlayfairDisplay-Regular.ttf', fontWeight: 400 },
-    { src: '/fonts/PlayfairDisplay-Medium.ttf', fontWeight: 500 },
-    { src: '/fonts/PlayfairDisplay-Bold.ttf', fontWeight: 700 },
-    { src: '/fonts/PlayfairDisplay-Italic.ttf', fontWeight: 500, fontStyle: 'italic' },
+    { src: fontUrl('PlayfairDisplay-Regular.ttf'), fontWeight: 400 },
+    { src: fontUrl('PlayfairDisplay-Medium.ttf'), fontWeight: 500 },
+    { src: fontUrl('PlayfairDisplay-Bold.ttf'), fontWeight: 700 },
+    { src: fontUrl('PlayfairDisplay-Italic.ttf'), fontWeight: 500, fontStyle: 'italic' },
   ],
 });
 
 Font.register({
   family: 'Inter',
   fonts: [
-    { src: '/fonts/Inter-Regular.ttf', fontWeight: 400 },
-    { src: '/fonts/Inter-Medium.ttf', fontWeight: 500 },
-    { src: '/fonts/Inter-SemiBold.ttf', fontWeight: 600 },
-    { src: '/fonts/Inter-Bold.ttf', fontWeight: 700 },
+    { src: fontUrl('Inter-Regular.ttf'), fontWeight: 400 },
+    { src: fontUrl('Inter-Medium.ttf'), fontWeight: 500 },
+    { src: fontUrl('Inter-SemiBold.ttf'), fontWeight: 600 },
+    { src: fontUrl('Inter-Bold.ttf'), fontWeight: 700 },
   ],
 });
 
