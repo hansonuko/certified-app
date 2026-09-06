@@ -15,7 +15,16 @@
 -- on-certificate small print, and this function still only ever returns at
 -- most one row for one known public_id — no enumeration path is opened by
 -- adding columns to it.
-create or replace function verify_certificate(p_public_id text)
+--
+-- `create or replace` can't change a function's OUT-parameter row shape
+-- (Postgres 42P13, "cannot change return type of existing function") — the
+-- column list here is a superset of 0009's original, which is still a
+-- shape change, so the old version has to be dropped first. The grant is
+-- re-issued below after recreating it; dropping a function drops privileges
+-- granted on it too.
+drop function if exists verify_certificate(text);
+
+create function verify_certificate(p_public_id text)
 returns table (
   public_id text,
   org_id uuid,
