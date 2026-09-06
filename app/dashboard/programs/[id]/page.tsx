@@ -39,12 +39,20 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
     <main className="flex flex-col gap-8 p-8">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl text-certified-navy">{program.title}</h1>
-        <Link
-          href={`/dashboard/programs/${id}/issue`}
-          className="rounded-control bg-certified-navy px-4 py-2 text-sm text-white"
-        >
-          Issue a certificate
-        </Link>
+        <div className="flex gap-3">
+          <Link
+            href={`/dashboard/programs/${id}/bulk-issue`}
+            className="rounded-control border border-certified-border px-4 py-2 text-sm text-certified-ink"
+          >
+            Bulk issue (CSV)
+          </Link>
+          <Link
+            href={`/dashboard/programs/${id}/issue`}
+            className="rounded-control bg-certified-navy px-4 py-2 text-sm text-white"
+          >
+            Issue a certificate
+          </Link>
+        </div>
       </div>
 
       <section className="rounded-card border border-certified-border bg-certified-surface p-6">
