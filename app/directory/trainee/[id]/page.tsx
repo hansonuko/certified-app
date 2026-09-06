@@ -2,19 +2,24 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { GoldSeal } from '@/components/GoldSeal';
+import { ContactForm } from '@/components/ContactForm';
 
 // Trainee public profile — docs/build-phases.md Phase 5, docs/blueprint.md
 // §3.5. Public, unauthenticated, SSR. Reads directory_listings_view
-// (supabase/migrations/0018) filtered to one trainee_id rather than a new
-// query/view — that view already excludes hidden trainees and scopes to
-// active certificates from approved orgs only, so a direct link to a
-// moderated-away or never-existed profile 404s the same way it would if it
-// never showed up in /directory search results in the first place.
+// (supabase/migrations/0018, extended 0020 for contact_visibility) filtered
+// to one trainee_id rather than a new query/view — that view already
+// excludes hidden trainees and scopes to active certificates from approved
+// orgs only, so a direct link to a moderated-away or never-existed profile
+// 404s the same way it would if it never showed up in /directory search
+// results in the first place.
 //
-// No raw phone/email here (CLAUDE.md rule #5) and no working "Contact"
-// action yet — the reveal/relay flow is Phase 6. A disabled affordance is
-// shown instead of either building a half-finished contact flow or
-// silently omitting the concept blueprint §3.5 calls for.
+// No raw phone/email here (CLAUDE.md rule #5) — the Contact form
+// (components/ContactForm.tsx, Phase 6) relays through lib/contact/
+// actions.ts instead, which reads the trainee's real email server-side
+// only. contact_visibility = 'hidden' suppresses the form entirely; both
+// 'public' and 'gated' show it, since raw exposure isn't allowed either way
+// under the confirmed "no public opt-out" decision (docs/blueprint.md §11
+// item 2) — see that action's own comment for the same reasoning.
 type DirectoryRow = {
   trainee_id: string;
   full_name: string;
@@ -30,6 +35,7 @@ type DirectoryRow = {
   category: string | null;
   issuer_display_name: string;
   issuer_slug: string;
+  contact_visibility: 'public' | 'gated' | 'hidden';
 };
 
 export default async function TraineeProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -108,16 +114,9 @@ export default async function TraineeProfilePage({ params }: { params: Promise<{
         ))}
       </div>
 
-      <div className="flex flex-col items-center gap-1 rounded-card border border-certified-border bg-certified-surface-2 p-4 text-center">
-        <button
-          type="button"
-          disabled
-          className="rounded-control bg-certified-navy px-4 py-2 text-sm text-white opacity-40"
-        >
-          Contact {profile.full_name.split(' ')[0]}
-        </button>
-        <p className="text-xs text-certified-muted">Contact requests are coming in a later phase.</p>
-      </div>
+      {profile.contact_visibility !== 'hidden' ? (
+        <ContactForm targetType="trainee" targetId={profile.trainee_id} recipientLabel={profile.full_name.split(' ')[0]} />
+      ) : null}
     </main>
   );
 }

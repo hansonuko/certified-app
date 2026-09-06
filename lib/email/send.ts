@@ -24,20 +24,25 @@ export async function sendEmail({
   to,
   subject,
   html,
+  replyTo,
 }: {
   to: string;
   subject: string;
   html: string;
+  /** Phase 6's contact relay (docs/blueprint.md §6) sets this to the inquirer's own
+   * email, so the recipient can hit "Reply" and reach them directly without Certified
+   * Africa ever exposing either party's contact info to the other side upfront. */
+  replyTo?: string;
 }): Promise<void> {
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`[email:mock] to=${to} subject="${subject}"\n${html}`);
+    console.log(`[email:mock] to=${to} subject="${subject}"${replyTo ? ` replyTo=${replyTo}` : ''}\n${html}`);
     return;
   }
 
   const from = process.env.RESEND_FROM_EMAIL;
   if (!from) throw new Error('RESEND_FROM_EMAIL is not set.');
 
-  const { error } = await getResendClient().emails.send({ from, to, subject, html });
+  const { error } = await getResendClient().emails.send({ from, to, subject, html, ...(replyTo ? { replyTo } : {}) });
   if (error) {
     throw new Error(`Resend send failed: ${error.message}`);
   }
