@@ -5,6 +5,7 @@ import { SERIF, SANS } from '../fonts';
 import { GoldSeal } from '../GoldSeal';
 import { VerificationQr } from '../VerificationQr';
 import { Signature } from '../Signature';
+import { IssuerLogo } from '../IssuerLogo';
 import { PAGE_WIDTH, PAGE_HEIGHT, TemplateProps } from '../types';
 
 const meta = (d: TemplateProps['data']) => [d.durationLabel, d.dateRangeLabel, d.distinction].filter(Boolean).join('   ·   ');
@@ -18,6 +19,7 @@ export function FrameCertificate({ brand, data }: TemplateProps) {
       <Page size={{ width: PAGE_WIDTH, height: PAGE_HEIGHT }} style={{ fontFamily: SANS }}>
         <View style={{ position: 'absolute', left: 28, top: 28, right: 28, bottom: 28, borderWidth: 2, borderColor: brand.primaryColor, borderStyle: 'solid' }} />
         <View style={{ position: 'absolute', left: 28, top: 28, right: 28, height: 96, backgroundColor: brand.primaryColor, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 44 }}>
+          {brand.logoUrl ? <IssuerLogo logoUrl={brand.logoUrl} size={40} style={{ marginRight: 16 }} /> : null}
           <View>
             <Text style={{ color: '#fff', fontWeight: 700, fontSize: 23 }}>{brand.issuerName}</Text>
             {brand.issuerTagline ? <Text style={{ color: '#EAEAEA', fontSize: 11 }}>{brand.issuerTagline}</Text> : null}

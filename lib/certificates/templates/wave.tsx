@@ -5,6 +5,7 @@ import { SERIF, SANS } from '../fonts';
 import { GoldSeal } from '../GoldSeal';
 import { VerificationQr } from '../VerificationQr';
 import { Signature } from '../Signature';
+import { IssuerLogo } from '../IssuerLogo';
 import { PAGE_WIDTH, PAGE_HEIGHT, TemplateProps } from '../types';
 
 const meta = (d: TemplateProps['data']) => [d.durationLabel, d.dateRangeLabel, d.distinction].filter(Boolean).join('   ·   ');
@@ -18,7 +19,10 @@ export function WaveCertificate({ brand, data }: TemplateProps) {
         <Svg width={PAGE_WIDTH} height={PAGE_HEIGHT} viewBox={`0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}`} style={{ position: 'absolute', left: 0, top: 0 }}>
           <Path d="M0,848 L0,680 C300,620 700,660 1000,630 C1100,620 1150,650 1200,640 L1200,848 Z" fill={brand.primaryColor} />
         </Svg>
-        <Text style={{ position: 'absolute', left: 80, top: 64, color: '#0F172A', fontWeight: 700, fontSize: 23 }}>{brand.issuerName}</Text>
+        <View style={{ position: 'absolute', left: 80, top: 64, flexDirection: 'row', alignItems: 'center' }}>
+          {brand.logoUrl ? <IssuerLogo logoUrl={brand.logoUrl} size={28} style={{ marginRight: 10 }} /> : null}
+          <Text style={{ color: '#0F172A', fontWeight: 700, fontSize: 23 }}>{brand.issuerName}</Text>
+        </View>
         {brand.issuerTagline ? <Text style={{ position: 'absolute', left: 80, top: 94, color: '#6B7280', fontSize: 11 }}>{brand.issuerTagline}</Text> : null}
         <Text style={{ position: 'absolute', left: 0, width: PAGE_WIDTH, textAlign: 'center', top: 220, color: '#0F2340', fontSize: 19, fontWeight: 700 }}>CERTIFICATE OF COMPLETION</Text>
         <Text style={{ position: 'absolute', left: 0, width: PAGE_WIDTH, textAlign: 'center', top: 278, fontFamily: SERIF, fontWeight: 700, fontSize: 50, color: '#0F172A' }}>{data.traineeName}</Text>

@@ -5,6 +5,7 @@ import { SERIF, SANS } from '../fonts';
 import { GoldSeal } from '../GoldSeal';
 import { VerificationQr } from '../VerificationQr';
 import { Signature } from '../Signature';
+import { IssuerLogo } from '../IssuerLogo';
 import { PAGE_WIDTH, PAGE_HEIGHT, TemplateProps } from '../types';
 
 const meta = (d: TemplateProps['data']) => [d.durationLabel, d.dateRangeLabel, d.distinction].filter(Boolean).join('   ·   ');
@@ -17,7 +18,13 @@ export function AngleCertificate({ brand, data }: TemplateProps) {
         <Svg width={PAGE_WIDTH} height={PAGE_HEIGHT} viewBox={`0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}`} style={{ position: 'absolute', left: 0, top: 0 }}>
           <Polygon points="0,0 340,0 190,848 0,848" fill={brand.primaryColor} />
         </Svg>
-        <View style={{ position: 'absolute', left: 56, top: 56, width: 40, height: 40, backgroundColor: '#C9992E' }} />
+        {brand.logoUrl ? (
+          <View style={{ position: 'absolute', left: 56, top: 56 }}>
+            <IssuerLogo logoUrl={brand.logoUrl} size={40} />
+          </View>
+        ) : (
+          <View style={{ position: 'absolute', left: 56, top: 56, width: 40, height: 40, backgroundColor: '#C9992E' }} />
+        )}
         <Text style={{ position: 'absolute', left: 56, top: 118, color: '#fff', fontWeight: 700, fontSize: 23 }}>{brand.issuerName}</Text>
         {brand.issuerTagline ? (
           <Text style={{ position: 'absolute', left: 56, top: 154, width: 220, color: '#D9E0EA', fontSize: 10, lineHeight: 1.5 }}>{brand.issuerTagline}</Text>

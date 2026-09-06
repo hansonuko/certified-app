@@ -5,6 +5,7 @@ import { SERIF, SANS } from '../fonts';
 import { GoldSeal } from '../GoldSeal';
 import { VerificationQr } from '../VerificationQr';
 import { Signature } from '../Signature';
+import { IssuerLogo } from '../IssuerLogo';
 import { PAGE_WIDTH, PAGE_HEIGHT, TemplateProps } from '../types';
 
 const meta = (d: TemplateProps['data']) => [d.durationLabel, d.dateRangeLabel, d.distinction].filter(Boolean).join('   ·   ');
@@ -18,6 +19,11 @@ export function SplitCertificate({ brand, data }: TemplateProps) {
           <Polygon points="0,0 220,0 0,140" fill={brand.primaryColor} />
           <Polygon points="1200,848 980,848 1200,708" fill={brand.primaryColor} />
         </Svg>
+        {brand.logoUrl ? (
+          <View style={{ position: 'absolute', left: PAGE_WIDTH / 2 - 16, top: 44 }}>
+            <IssuerLogo logoUrl={brand.logoUrl} size={32} />
+          </View>
+        ) : null}
         <Text style={{ position: 'absolute', left: 0, width: PAGE_WIDTH, textAlign: 'center', top: 80, fontWeight: 700, fontSize: 21, color: '#0F172A' }}>{brand.issuerName}</Text>
         {brand.issuerTagline ? <Text style={{ position: 'absolute', left: 0, width: PAGE_WIDTH, textAlign: 'center', top: 110, color: '#6B7280', fontSize: 11 }}>{brand.issuerTagline}</Text> : null}
         <Text style={{ position: 'absolute', left: 0, width: PAGE_WIDTH, textAlign: 'center', top: 196, color: '#0F2340', fontSize: 19, fontWeight: 700 }}>CERTIFICATE OF COMPLETION</Text>
