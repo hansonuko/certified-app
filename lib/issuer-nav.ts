@@ -13,9 +13,9 @@ export function getIssuerNavItems(): IssuerNavItem[] {
   return [
     { href: '/dashboard', label: 'Overview' },
     { href: '/dashboard/brand', label: 'Brand' },
-    { href: '/dashboard/programs', label: 'Programs', comingSoon: true },
-    { href: '/dashboard/certificates', label: 'Certificates', comingSoon: true },
-    { href: '/dashboard/trainees', label: 'Trainees', comingSoon: true },
+    { href: '/dashboard/programs', label: 'Programs' },
+    { href: '/dashboard/certificates', label: 'Certificates' },
+    { href: '/dashboard/trainees', label: 'Trainees' },
     { href: '/dashboard/directory-profile', label: 'Directory Profile', comingSoon: true },
     { href: '/dashboard/messages', label: 'Messages', comingSoon: true },
     { href: '/dashboard/settings', label: 'Settings', comingSoon: true },
