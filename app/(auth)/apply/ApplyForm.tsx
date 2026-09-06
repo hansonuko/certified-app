@@ -3,6 +3,7 @@
 import { useActionState, useState, useEffect, useRef } from 'react';
 import 'altcha';
 import { submitApplication, type ApplyFormState } from './actions';
+import { LocationFields } from '@/components/LocationFields';
 
 // Multi-step application wizard (docs/blueprint.md §3.1, docs/build-phases.md
 // Phase 1). All steps stay mounted throughout (toggled with a `hidden`
@@ -78,7 +79,7 @@ export function ApplyForm() {
         return;
       }
       if (applicantType === 'business' && !hasFile('proof_of_operation')) {
-        setStepError('A CAC certificate upload is required for Business/Training Centre applicants.');
+        setStepError('A business registration certificate (e.g. CAC in Nigeria) upload is required for Business/Training Centre applicants.');
         return;
       }
     }
@@ -125,14 +126,11 @@ export function ApplyForm() {
         <Field label="Legal / registered name" name="legal_name" />
         <Field label="Display name (shown publicly)" name="display_name" />
         <Field
-          label={`RC/CAC number ${applicantType === 'individual' ? '(optional — leave blank if none)' : ''}`}
+          label={`Business registration number, if any (e.g. RC/CAC in Nigeria) ${applicantType === 'individual' ? '(optional — leave blank if none)' : ''}`}
           name="rc_number"
         />
         <Field label="Street address" name="address_street" />
-        <div className="flex gap-4">
-          <Field label="State" name="address_state" />
-          <Field label="LGA" name="address_lga" />
-        </div>
+        <LocationFields countryName="address_country" regionName="address_region" localityName="address_locality" />
         <Field label="Field(s) of training you intend to certify in" name="training_fields" />
         <TextAreaField label="Short description of what you train" name="training_description" />
         <fieldset>
@@ -159,7 +157,7 @@ export function ApplyForm() {
         <h2 className="font-display text-xl text-certified-navy">Identification & proof of operation</h2>
         <FileField label="Identification document (business/work ID card, government ID, etc.)" name="identification_document" />
         <FileField
-          label={`CAC certificate ${applicantType === 'individual' ? '(optional)' : '(required)'}`}
+          label={`Business registration certificate (e.g. CAC in Nigeria) ${applicantType === 'individual' ? '(optional)' : '(required)'}`}
           name="proof_of_operation"
         />
       </section>
@@ -261,11 +259,11 @@ function DeclarationText() {
         <li>I am the person I claim to be, and the identification document provided in this application is genuine, accurate, and belongs to me.</li>
         <li>I possess genuine competence, training, qualification, and/or verifiable practical experience in the field(s) of training I have indicated in this application, and I am not misrepresenting my ability to deliver such training.</li>
         <li>All information I have provided in this application is true and correct to the best of my knowledge.</li>
-        <li>I understand that any certificate I issue through Certified will represent to the public that the certified individual has genuinely undergone and completed the training described.</li>
-        <li>I understand that Certified relies on this declaration, in the absence of formal business registration, as a basis for approving my account.</li>
-        <li>I understand that knowingly making a false declaration may constitute an offence under applicable Nigerian law and may result in suspension, removal of issued certificates, and referral to authorities.</li>
-        <li>Certified may request additional supporting evidence at any time and may suspend or revoke approved status if not satisfactorily provided.</li>
-        <li>I consent to Certified retaining this declaration and my identification document for verification, audit, and regulatory compliance, per the NDPA 2023 and Certified&apos;s Privacy Policy.</li>
+        <li>I understand that any certificate I issue through Certified Africa will represent to the public that the certified individual has genuinely undergone and completed the training described.</li>
+        <li>I understand that Certified Africa relies on this declaration, in the absence of formal business registration, as a basis for approving my account.</li>
+        <li>I understand that knowingly making a false declaration may constitute an offence under applicable law in my country of operation and may result in suspension, removal of issued certificates, and referral to authorities.</li>
+        <li>Certified Africa may request additional supporting evidence at any time and may suspend or revoke approved status if not satisfactorily provided.</li>
+        <li>I consent to Certified Africa retaining this declaration and my identification document for verification, audit, and regulatory compliance, per the data protection law applicable in my country of operation (e.g. Nigeria&apos;s NDPA 2023, or the equivalent elsewhere) and Certified Africa&apos;s Privacy Policy.</li>
       </ol>
     </>
   );

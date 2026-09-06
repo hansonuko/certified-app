@@ -19,7 +19,7 @@ export function IssuerShell({
   return (
     <div className="flex min-h-screen">
       <aside className="w-60 shrink-0 bg-certified-navy text-white">
-        <div className="p-6 font-display text-xl">Certified</div>
+        <div className="p-6 font-display text-xl">Certified Africa</div>
         <nav className="flex flex-col gap-1 px-3">
           {navItems.map((item) => (
             <Link

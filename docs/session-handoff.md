@@ -5,9 +5,10 @@ verified, what's still open. Read this alongside `docs/build-phases.md`
 (the plan) before starting a new phase; this doc is the "what actually
 happened" complement to that plan.
 
-**Last updated:** 2026-09-06, after PR #7 merged (this doc's own §8/§9) +
-the account deletion/recovery incident (see §10). Phase 4 has not started —
-see §7 for the reviewed-and-approved scope.
+**Last updated:** 2026-09-06 — Phase 4 merged (PR #9, after fixing a
+migration deadlock and a `CREATE OR REPLACE FUNCTION` shape error along the
+way, see §11), then the project's scope changed to pan-African under the
+name **Certified Africa** — see §11 for what that touched.
 
 ---
 
@@ -21,11 +22,13 @@ see §7 for the reviewed-and-approved scope.
 | 2 — Staff console + application review | ✅ merged | #4 | `/staff/applications`, approve/request-info/reject, audit log, email |
 | 2.5 — Organizations (partial, by design) | ✅ merged | #5 | Only `/staff/organizations` — Certificates/Revocations/Moderation/Support deferred to Phases 4/5/6, see §3 |
 | 3 — Brand setup & templates | ✅ merged | #6 | Dashboard shell, brand wizard, migration 0011, real fonts, logo+signature rendering fixed on all 10 templates |
-| 4 — Certificate issuance & verification | **not started** | — | Next up |
+| 4 — Certificate issuance & verification | ✅ merged | #9 | Program CRUD, single-trainee issuance + signing/QR/PDF, `/verify`, issuer-initiated revocation. Migrations 0012–0015 |
 
-All 7 PRs merged in order, no open PRs as of this writing (PR #7 added this
-doc's §8/§9; this update, once its own PR merges, will be #8). `main` builds
-clean (`npx tsc --noEmit`, `npm run build`) as of `36ad412`.
+9 PRs merged in order as of this writing. `main` built clean
+(`npx tsc --noEmit`, `npm run build`, `npm test`) as of `2018f27`, before the
+pan-African rebrand work in §11 (not yet merged as of this update — see
+§11 for its own migrations 0016–0017, still pending against the hosted
+project).
 
 ---
 
@@ -344,3 +347,104 @@ application has ever existed in this database as of this writing.
 enrollment on the recreated account (§9's lesson applies here too — don't
 enroll it for them). No other cleanup needed; the recreated account is
 otherwise a clean, correct Admin row.
+
+---
+
+## 11. Phase 4 merge + pan-African rebrand ("Certified Africa")
+
+**Phase 4** (PR #9) merged after two live-migration issues, both fixed and
+re-sent before the user re-ran them successfully:
+
+1. The original single `0012_certificate_issuance.sql` deadlocked
+   (Postgres `40P01`) — one transaction held locks across `storage.objects`
+   and public-schema tables at once, racing Supabase's own background
+   Storage/PostgREST processes. Fix: split into four smaller, per-table
+   migrations (`0012`–`0015`). **Lesson for any future migration touching
+   both `storage.objects` and public-schema tables**: keep them in separate
+   files/transactions from the start, don't wait for the deadlock to teach
+   this again.
+2. `0015`'s `verify_certificate()` replace hit `42P13` ("cannot change
+   return type of existing function") — `CREATE OR REPLACE FUNCTION` can't
+   change the OUT-parameter shape even when only adding columns. Fix:
+   `DROP FUNCTION IF EXISTS` before recreating, re-grant `EXECUTE` after
+   (a drop wipes existing grants).
+
+All of `0012`–`0015` are confirmed live on the hosted project.
+
+**Immediately after merging**, the user redirected the whole project's
+scope: renamed to **Certified Africa**, geographic scope expanded from
+Nigeria-only to pan-African. Before touching anything, four decisions were
+confirmed explicitly (not assumed) via AskUserQuestion, since each was
+expensive to get wrong:
+
+1. **Gold seal wordmark stays "CERTIFIED"** — not changed to "CERTIFIED
+   AFRICA". Avoids reworking fixed-position artwork already built across
+   `lib/certificates/GoldSeal.tsx`, `components/GoldSeal.tsx`, and all 10
+   templates. The company name and the trust-mark word are allowed to
+   differ (see `docs/blueprint.md` §11 item 8).
+2. **Location model: fully structured Country → Region, free-text
+   Locality** — not a flat free-text "state/lga" pair anymore, but also not
+   a fully exhaustive structured dataset for all 54 countries (unrealistic
+   to source/maintain accurately). Landed as: Country (structured, all 54
+   AU/UN-recognized states), Region (structured dropdown for Nigeria/Ghana/
+   Kenya/South Africa specifically, free text elsewhere), Locality (free
+   text everywhere, including the priority four) — `lib/geo/africa.ts`,
+   `components/LocationFields.tsx`. See `docs/blueprint.md` §7 for the full
+   reasoning, including why locality-level structured data (LGA-equivalent)
+   was ruled out even for priority countries — that's thousands of entries
+   per country, a much bigger sourcing effort than this pass takes on.
+3. **Legal/declaration language genericized now** — `docs/declaration-
+   form.md` and `ApplyForm.tsx`'s hand-synced copy no longer assume
+   Nigerian law/NDPA specifically; both now say "applicable law in my
+   country of operation" with Nigeria kept only as a parenthetical example.
+   `declaration_version` bumped `v1-2026-09` → `v2-2026-09` accordingly
+   (`app/(auth)/apply/actions.ts`) — this is drafted language, not legal
+   advice; still flagged for a real lawyer's review per the doc's own
+   header note.
+4. **Repo/Vercel/production URL left untouched** — only in-app copy, code,
+   and docs were renamed. `hansonuko/certified-app` (GitHub), the Vercel
+   project, and `certified-app-lime.vercel.app` all still carry the old
+   name; renaming those is its own separate, explicit, outward-facing
+   decision the user can trigger later.
+
+**What changed, concretely:**
+
+- Schema: `supabase/migrations/0016`–`0017` (not yet applied to the hosted
+  project as of this writing — sending them next, same rhythm as every
+  prior migration). Renames `organizations.address_state`/`address_lga` →
+  `address_region`/`address_locality`, adds `address_country`; same
+  rename+add pattern on `trainees` (`state`/`lga` → `region`/`locality`,
+  adds `country`). Both `organizations_public_view` and
+  `trainees_public_view` (0009) updated via `CREATE OR REPLACE VIEW` to
+  match. Applied as two separate files (not one) per lesson #1 above, even
+  though the deadlock risk here is much lower than the storage.objects
+  case — no reason not to keep applying the lesson.
+- `lib/geo/africa.ts` — the country/region dataset described above.
+- `components/LocationFields.tsx` — shared Country/Region/Locality form
+  fields, used by both `/apply` (org address) and the issuance flow
+  (trainee location); region renders as a dropdown or free-text input
+  depending on whether the selected country has structured data.
+- Every user-facing "Certified" string (page titles/metadata, dashboard/
+  staff shell headers, email subject lines and bodies, README, CLAUDE.md's
+  own project description) renamed to "Certified Africa" — except anywhere
+  quoting the seal's actual wordmark or naming the seal itself (e.g.
+  `docs/blueprint.md` §5.1's "Certified Gold Seal" heading, the seal's own
+  `aria-label`), which intentionally still say just "Certified" to match
+  what's actually drawn.
+- `docs/blueprint.md` §3.1, §4, §6, §7, and §11 updated for the new
+  location model and genericized legal-hook language; `docs/build-phases.md`
+  Phase 5's own prompt rewritten in place (Phase 5 hadn't started, so this
+  is the actual working brief now, not just a historical note);
+  `docs/sitemap.md`'s `/directory` row updated similarly.
+
+**Not yet done / for next session:**
+
+- Migrations 0016–0017 need to be pasted into the Supabase SQL Editor
+  before this is testable live (same pattern as every migration so far —
+  sent separately, wait for confirmation).
+- No real data exists yet to migrate (organizations/trainees were confirmed
+  empty in §10), so the column renames carry zero data-loss risk.
+- Phase 5 (the public directory) hasn't been built yet — when it is, it's
+  the first real consumer of `organizations_public_view`/
+  `trainees_public_view`'s new `country`/`region`/`locality` columns and of
+  `lib/geo/africa.ts` for the directory's own filter UI.

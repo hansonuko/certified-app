@@ -34,8 +34,9 @@ export async function submitApplication(_prevState: ApplyFormState, formData: Fo
   const displayName = (formData.get('display_name') as string | null)?.trim();
   const rcNumber = (formData.get('rc_number') as string | null)?.trim() || null;
   const addressStreet = (formData.get('address_street') as string | null)?.trim() || null;
-  const addressState = (formData.get('address_state') as string | null)?.trim() || null;
-  const addressLga = (formData.get('address_lga') as string | null)?.trim() || null;
+  const addressCountry = (formData.get('address_country') as string | null)?.trim() || null;
+  const addressRegion = (formData.get('address_region') as string | null)?.trim() || null;
+  const addressLocality = (formData.get('address_locality') as string | null)?.trim() || null;
   const ownerFullName = (formData.get('owner_full_name') as string | null)?.trim();
   const ownerPhone = (formData.get('owner_phone') as string | null)?.trim();
   const ownerEmail = (formData.get('owner_email') as string | null)?.trim();
@@ -60,7 +61,7 @@ export async function submitApplication(_prevState: ApplyFormState, formData: Fo
   const isBusiness = applicantType === 'business';
   const hasProofFile = proofOfOperationFile instanceof File && proofOfOperationFile.size > 0;
   if (isBusiness && !hasProofFile) {
-    return { error: 'A CAC certificate upload is required for Business/Training Centre applicants.' };
+    return { error: 'A business registration certificate (e.g. CAC in Nigeria) upload is required for Business/Training Centre applicants.' };
   }
 
   if (!isBusiness) {
@@ -92,7 +93,7 @@ export async function submitApplication(_prevState: ApplyFormState, formData: Fo
     return { error: err instanceof Error ? err.message : 'File upload failed.' };
   }
 
-  const declarationVersion = 'v1-2026-09'; // docs/declaration-form.md — bump this if that file's wording changes
+  const declarationVersion = 'v2-2026-09'; // docs/declaration-form.md — bumped for the Certified Africa rebrand + genericized legal language
   const hdrs = await headers();
   const submissionIp = hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null;
 
@@ -105,8 +106,9 @@ export async function submitApplication(_prevState: ApplyFormState, formData: Fo
       display_name: displayName,
       rc_number: rcNumber,
       address_street: addressStreet,
-      address_state: addressState,
-      address_lga: addressLga,
+      address_country: addressCountry,
+      address_region: addressRegion,
+      address_locality: addressLocality,
       owner_full_name: ownerFullName,
       owner_phone: ownerPhone,
       owner_email: ownerEmail,
@@ -136,7 +138,7 @@ export async function submitApplication(_prevState: ApplyFormState, formData: Fo
       legal_name: legalName,
       display_name: displayName,
       rc_number: rcNumber,
-      address: { street: addressStreet, state: addressState, lga: addressLga },
+      address: { street: addressStreet, country: addressCountry, region: addressRegion, locality: addressLocality },
       owner: { full_name: ownerFullName, phone: ownerPhone, email: ownerEmail },
       trainee_volume_band: volumeBand,
       training_fields: trainingFields,

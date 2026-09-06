@@ -55,8 +55,9 @@ export async function issueCertificate(_prev: IssueFormState, formData: FormData
   const phone = (formData.get('phone') as string | null)?.trim() || null;
   const email = (formData.get('email') as string | null)?.trim() || null;
   const bio = (formData.get('bio') as string | null)?.trim() || null;
-  const state = (formData.get('state') as string | null)?.trim() || null;
-  const lga = (formData.get('lga') as string | null)?.trim() || null;
+  const country = (formData.get('country') as string | null)?.trim() || null;
+  const region = (formData.get('region') as string | null)?.trim() || null;
+  const locality = (formData.get('locality') as string | null)?.trim() || null;
   const completionDate = formData.get('completion_date') as string | null;
   const grade = (formData.get('grade') as string | null)?.trim() || null;
   const consent = formData.get('consent');
@@ -103,7 +104,7 @@ export async function issueCertificate(_prev: IssueFormState, formData: FormData
 
   const { data: trainee, error: traineeError } = await supabase
     .from('trainees')
-    .insert({ org_id: orgId, program_id: programId, full_name: fullName, photo_url: photoUrl, bio, phone, email, state, lga })
+    .insert({ org_id: orgId, program_id: programId, full_name: fullName, photo_url: photoUrl, bio, phone, email, country, region, locality })
     .select('id')
     .single();
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { Svg, Circle, Polygon, Text, Defs, RadialGradient, Stop } from '@react-pdf/renderer';
 
 /**
- * Certified's mandatory trust mark (docs/design-system.md §5). Fixed artwork — never
+ * Certified Africa's mandatory trust mark (docs/design-system.md §5). Fixed artwork — never
  * recolored to an issuer's brand color, never resized below legibility, never rotated.
  * Reused identically across every certificate template. `size` is the only prop
  * templates should vary, and only within the design system's ~9%-of-page-width rule.
