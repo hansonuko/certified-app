@@ -5,8 +5,9 @@ verified, what's still open. Read this alongside `docs/build-phases.md`
 (the plan) before starting a new phase; this doc is the "what actually
 happened" complement to that plan.
 
-**Last updated:** 2026-09-06, after Phase 3 merged (PR #6) + first production
-deploy fixed (see §8).
+**Last updated:** 2026-09-06, after PR #7 merged (this doc's own §8/§9) +
+the account deletion/recovery incident (see §10). Phase 4 has not started —
+see §7 for the reviewed-and-approved scope.
 
 ---
 
@@ -15,15 +16,16 @@ deploy fixed (see §8).
 | Phase | Status | PR | Notes |
 |---|---|---|---|
 | 0 — Foundation | ✅ merged | #1 | Next.js scaffold, Supabase schema (0001–0009), auth (issuer + staff/MFA), `lib/permissions.ts` |
-| 0.5 — Super Admin Bootstrap | ✅ merged | #2 | First Admin created live: **Hanson Uko / certifiedafrica1@gmail.com** — see §4, password was changed after bootstrap |
+| 0.5 — Super Admin Bootstrap | ✅ merged | #2 | First Admin created live: **Hanson Uko / certifiedafrica1@gmail.com** — see §4. **Recreated once**, see §10 — current admin id is `faa4335d-9ef8-4a36-957b-8714478e7e23`, the original `e48e2f37-9879-4178-8d7e-cc4bfce563e0` no longer exists |
 | 1 — Applicant onboarding | ✅ merged | #3 | Identification-based (NIN dropped per explicit direction), migration 0010 |
 | 2 — Staff console + application review | ✅ merged | #4 | `/staff/applications`, approve/request-info/reject, audit log, email |
 | 2.5 — Organizations (partial, by design) | ✅ merged | #5 | Only `/staff/organizations` — Certificates/Revocations/Moderation/Support deferred to Phases 4/5/6, see §3 |
 | 3 — Brand setup & templates | ✅ merged | #6 | Dashboard shell, brand wizard, migration 0011, real fonts, logo+signature rendering fixed on all 10 templates |
 | 4 — Certificate issuance & verification | **not started** | — | Next up |
 
-All 6 PRs merged in order, no open PRs as of this writing. `main` builds
-clean (`npx tsc --noEmit`, `npm run build`) as of `7c9037c`.
+All 7 PRs merged in order, no open PRs as of this writing (PR #7 added this
+doc's §8/§9; this update, once its own PR merges, will be #8). `main` builds
+clean (`npx tsc --noEmit`, `npm run build`) as of `36ad412`.
 
 ---
 
@@ -188,6 +190,56 @@ repeatedly during the session and not yet acted on.
 **Phase 4 — Certificate issuance & verification** (`docs/build-phases.md`).
 Read that phase's prompt in full before starting; check §3 items 2 and 3
 above first, since both bear directly on how issuance should be built.
+Branch `phase-4-certificate-issuance` already exists locally, cut from
+`main` at `36ad412`, zero commits on it yet — reuse it rather than creating
+a second one. Scope already reviewed and approved by the user
+("scope what is naturally next for my review and go ahead"):
+
+1. **Program creation** — turn `/dashboard/programs`, `/dashboard/programs/
+   new`, `/dashboard/programs/[id]` from "coming soon" placeholders into
+   real CRUD against `training_programs`.
+2. **Add-trainee flow** — name, optional photo (needs a new public Storage
+   bucket, uid-prefixed RLS matching `org-brand-assets`' pattern, re-encoded
+   via sharp same as every other upload), phone/email, bio, completion
+   date, grade/distinction, and a **required consent checkbox** using the
+   exact wording from `docs/blueprint.md` §6: *"I confirm this trainee has
+   consented to a public profile."*
+3. **Certificate generation** — random non-sequential `public_id`;
+   HMAC-SHA256 signature computed server-side in a new `lib/certificates/
+   sign.ts` (this exact path is already named in `CLAUDE.md`'s folder
+   structure section, not yet created); PDF rendered via the issuer's
+   chosen template + brand config; uploaded to a new public `certificates`
+   Storage bucket; URL stored on the `certificates` row. Writes go through
+   `lib/supabase/admin.ts` (service role) — `certificates` has no
+   direct-write RLS policy for anyone, by design (§5).
+4. **Public verification page** `/verify/[public_id]` — SSR, unauthenticated,
+   recomputes the signature server-side and compares against the stored
+   value, renders Valid/Revoked/Expired with the animated reveal in
+   `docs/design-system.md` §2. Must satisfy CLAUDE.md rule #6: rate-limited
+   per IP, and must never expose a "list all certificates" capability.
+5. **Revocation** — `/dashboard/certificates/[id]`'s placeholder becomes
+   real: reason required, audit-logged, flips certificate status,
+   permanently disclosed on the verification page thereafter.
+6. **New Storage migration needed**: `certificates` bucket (public) +
+   `trainee-photos` bucket (public, uid-prefixed owner-write RLS) + their
+   RLS policies — same pasted-into-SQL-Editor rhythm as every prior
+   migration.
+7. **Font path fix** (§3 item 2) — switch `lib/certificates/fonts.ts` to
+   build absolute URLs from `NEXT_PUBLIC_APP_URL` so react-pdf's
+   server-side renderer can actually fetch them; this was blocking Phase 4
+   specifically and should be fixed as part of it, not deferred again.
+8. **`CertificateData` assembly** (§3 item 3) — confirm `durationLabel`/
+   `dateRangeLabel` come from `TrainingProgram` via join at issuance time
+   (no such column exists directly on `Certificate`) before wiring the
+   issuance action.
+9. **Rate limiting** — Upstash REST credentials are still not configured
+   (§2/§3 item 5). Build an in-memory limiter for `/verify` for now, same
+   mock-until-configured pattern as `lib/email/send.ts`, structured so real
+   Upstash can drop in later without a rewrite.
+
+Same rhythm as every previous phase: write migration → send to the user
+via SendUserFile → they paste it into the SQL Editor → build/verify locally
+→ commit → push → PR → **wait for explicit "merge" before merging.**
 
 ---
 
@@ -250,3 +302,45 @@ authenticator app. (I attempted to clear it programmatically via
 safety classifier, since deleting an auth factor autonomously is a
 sensitive action. That block was correct; doing it by hand in the
 Dashboard is the right path here.)
+
+---
+
+## 10. Account deletion & recovery
+
+Shortly after the §9 fix, the user reported the super admin account itself
+appeared to be gone — most likely they went into the Supabase Dashboard
+intending to clear just the stale MFA factor (per §9's fix) and deleted the
+auth user instead. `admin_users.user_id` references `auth.users(id) on
+delete cascade`, so the `admin_users` row went with it.
+
+**Verified live before touching anything**: queried both `auth.users` and
+`admin_users` with the service-role client — the original account
+(`e48e2f37-9879-4178-8d7e-cc4bfce563e0`, certifiedafrica1@gmail.com) was
+gone from both, and `admin_users` count was genuinely `0`. That matters
+because `scripts/bootstrap-admin-guard.ts` refuses unconditionally once
+that count is `> 0` — a real `0` count meant the bootstrap script could
+safely run again without weakening its guard.
+
+**Recovery**: regenerated `ADMIN_BOOTSTRAP_SECRET` in `.env.local`, ran
+`npm run bootstrap:admin` with the same name/email and a new password the
+user provided directly, which created a fresh admin_users row with id
+`faa4335d-9ef8-4a36-957b-8714478e7e23`. Immediately blanked
+`ADMIN_BOOTSTRAP_SECRET` again afterward (see §2) — same one-time-use
+pattern as the original bootstrap. Confirmed live: `admin_users` row has
+`role = admin`, `status = active`, zero MFA factors (this time genuinely
+untouched by any of my testing — see §9's lesson, followed here), and a
+correct `bootstrap_admin_created` row in `audit_log`.
+
+**Also checked, per the user's direct question** ("can't see any pending
+application submitted earlier, possible to have that if it still exists on
+database?"): queried `organizations` and `applications` directly — both
+tables were **completely empty**, zero rows. Nothing was lost in the
+account deletion itself; every prior record across every phase's testing
+was disposable test data that I created and cleaned up as part of
+verifying that phase, not a real applicant's submission. No real
+application has ever existed in this database as of this writing.
+
+**For next session**: the user still needs to do their own fresh MFA
+enrollment on the recreated account (§9's lesson applies here too — don't
+enroll it for them). No other cleanup needed; the recreated account is
+otherwise a clean, correct Admin row.
