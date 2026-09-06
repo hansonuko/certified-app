@@ -23,6 +23,7 @@ import type { StaffRole } from '@/lib/permissions';
 export async function requireStaffSession(): Promise<{
   userId: string;
   role: StaffRole;
+  name: string;
 }> {
   const supabase = await createClient();
 
@@ -36,11 +37,11 @@ export async function requireStaffSession(): Promise<{
 
   const { data: adminUser } = await supabase
     .from('admin_users')
-    .select('id, role, status')
+    .select('id, role, status, name')
     .eq('id', user.id)
     .maybeSingle();
 
   if (!adminUser || adminUser.status !== 'active') redirect('/staff/login');
 
-  return { userId: user.id, role: adminUser.role as StaffRole };
+  return { userId: user.id, role: adminUser.role as StaffRole, name: adminUser.name };
 }
