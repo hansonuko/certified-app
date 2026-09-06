@@ -1,0 +1,15 @@
+-- Phase 7, item 2 (docs/build-phases.md) — a job can be advanced from two
+-- places (lib/bulk-issuance/processor.ts): the Vercel Cron-triggered route
+-- (app/api/cron/process-bulk-issuance) and, opportunistically, the issuer's
+-- own status page loading/refreshing while a job is in flight (a pragmatic
+-- free-tier addition — Vercel's Hobby plan restricts Cron to at most once a
+-- day, which would otherwise leave a queued batch sitting for a very long
+-- time with nobody watching; a page view or its auto-refresh can also nudge
+-- the job forward). Two triggers means two processes could pick up the same
+-- job at once without a lock, double-issuing certificates for the same
+-- rows. A short lease avoids that: whichever process claims the lock
+-- (updates this column to a near-future expiry) proceeds; the other sees a
+-- non-expired lock and skips this tick. Self-healing if a previous run
+-- crashed mid-batch — the lease just expires and the next attempt reclaims
+-- it, rather than a job getting stuck forever behind a dead lock holder.
+alter table jobs add column processing_lock_expires_at timestamptz;
