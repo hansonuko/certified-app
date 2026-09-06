@@ -9,6 +9,10 @@ import { createClient } from '@/lib/supabase/server';
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
+  // docs/build-phases.md Phase 8: /claim/[token]'s "sign in with Google" path
+  // needs to land back on the claim page, not the default /apply — see
+  // app/(auth)/login/LoginForm.tsx's handleGoogle().
+  const next = searchParams.get('next') || '/apply';
 
   if (code) {
     const supabase = await createClient();
@@ -19,7 +23,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!error) {
-      return NextResponse.redirect(`${origin}/apply`);
+      return NextResponse.redirect(`${origin}${next}`);
     }
   }
 
