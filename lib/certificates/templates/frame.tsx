@@ -4,6 +4,8 @@ import '../fonts';
 import { SERIF, SANS } from '../fonts';
 import { GoldSeal } from '../GoldSeal';
 import { VerificationQr } from '../VerificationQr';
+import { Signature } from '../Signature';
+import { IssuerLogo } from '../IssuerLogo';
 import { PAGE_WIDTH, PAGE_HEIGHT, TemplateProps } from '../types';
 
 const meta = (d: TemplateProps['data']) => [d.durationLabel, d.dateRangeLabel, d.distinction].filter(Boolean).join('   ·   ');
@@ -17,6 +19,7 @@ export function FrameCertificate({ brand, data }: TemplateProps) {
       <Page size={{ width: PAGE_WIDTH, height: PAGE_HEIGHT }} style={{ fontFamily: SANS }}>
         <View style={{ position: 'absolute', left: 28, top: 28, right: 28, bottom: 28, borderWidth: 2, borderColor: brand.primaryColor, borderStyle: 'solid' }} />
         <View style={{ position: 'absolute', left: 28, top: 28, right: 28, height: 96, backgroundColor: brand.primaryColor, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 44 }}>
+          {brand.logoUrl ? <IssuerLogo logoUrl={brand.logoUrl} size={40} style={{ marginRight: 16 }} /> : null}
           <View>
             <Text style={{ color: '#fff', fontWeight: 700, fontSize: 23 }}>{brand.issuerName}</Text>
             {brand.issuerTagline ? <Text style={{ color: '#EAEAEA', fontSize: 11 }}>{brand.issuerTagline}</Text> : null}
@@ -29,7 +32,7 @@ export function FrameCertificate({ brand, data }: TemplateProps) {
         <Text style={{ position: 'absolute', left: 0, width: PAGE_WIDTH, textAlign: 'center', top: 414, fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: '#0F172A' }}>{data.programTitle}</Text>
         <Text style={{ position: 'absolute', left: 0, width: PAGE_WIDTH, textAlign: 'center', top: 452, color: '#6B7280', fontSize: 12 }}>{meta(data)}</Text>
         <View style={{ position: 'absolute', left: 80, bottom: 150, width: 220, borderTopWidth: 1, borderTopColor: '#CBD5E1', borderTopStyle: 'solid', paddingTop: 12 }}>
-          <Text style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 18, color: '#0F172A' }}>{brand.signatoryName}</Text>
+          <Signature signatureImageUrl={brand.signatureImageUrl} signatoryName={brand.signatoryName} />
           <Text style={{ fontSize: 10, color: '#6B7280' }}>{brand.signatoryTitle}</Text>
         </View>
         <View style={{ position: 'absolute', left: 568, bottom: 56 }}>

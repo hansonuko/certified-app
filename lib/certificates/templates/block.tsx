@@ -4,6 +4,8 @@ import '../fonts';
 import { SERIF, SANS } from '../fonts';
 import { GoldSeal } from '../GoldSeal';
 import { VerificationQr } from '../VerificationQr';
+import { Signature } from '../Signature';
+import { IssuerLogo } from '../IssuerLogo';
 import { PAGE_WIDTH, PAGE_HEIGHT, TemplateProps } from '../types';
 
 const meta = (d: TemplateProps['data']) => [d.durationLabel, d.dateRangeLabel, d.distinction].filter(Boolean).join('   ·   ');
@@ -14,11 +16,15 @@ export function BlockCertificate({ brand, data }: TemplateProps) {
     <Document>
       <Page size={{ width: PAGE_WIDTH, height: PAGE_HEIGHT }} style={{ fontFamily: SANS }}>
         <View style={{ position: 'absolute', right: 0, top: 0, width: 380, height: PAGE_HEIGHT, backgroundColor: brand.primaryColor, padding: 48, paddingTop: 64 }}>
-          <View style={{ width: 40, height: 40, backgroundColor: '#fff', opacity: 0.9 }} />
+          {brand.logoUrl ? (
+            <IssuerLogo logoUrl={brand.logoUrl} size={40} />
+          ) : (
+            <View style={{ width: 40, height: 40, backgroundColor: '#fff', opacity: 0.9 }} />
+          )}
           <Text style={{ color: '#fff', fontWeight: 700, fontSize: 23, marginTop: 20 }}>{brand.issuerName}</Text>
           {brand.issuerTagline ? <Text style={{ color: '#E6E6E6', fontSize: 12, marginTop: 8, lineHeight: 1.6 }}>{brand.issuerTagline}</Text> : null}
           <View style={{ marginTop: 56, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.25)', borderTopStyle: 'solid', paddingTop: 20 }}>
-            <Text style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 17, color: '#fff' }}>{brand.signatoryName}</Text>
+            <Signature signatureImageUrl={brand.signatureImageUrl} signatoryName={brand.signatoryName} color="#fff" fontSize={17} />
             <Text style={{ fontSize: 10, color: '#E6E6E6', marginTop: 4 }}>{brand.signatoryTitle}</Text>
           </View>
         </View>

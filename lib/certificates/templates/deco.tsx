@@ -4,6 +4,8 @@ import '../fonts';
 import { SERIF, SANS } from '../fonts';
 import { GoldSeal } from '../GoldSeal';
 import { VerificationQr } from '../VerificationQr';
+import { Signature } from '../Signature';
+import { IssuerLogo } from '../IssuerLogo';
 import { PAGE_WIDTH, PAGE_HEIGHT, TemplateProps } from '../types';
 
 const meta = (d: TemplateProps['data']) => [d.durationLabel, d.dateRangeLabel, d.distinction].filter(Boolean).join('   ·   ');
@@ -23,7 +25,10 @@ export function DecoCertificate({ brand, data }: TemplateProps) {
             <Rect x={1100} y={32} width={100} height={12} />
           </G>
         </Svg>
-        <Text style={{ position: 'absolute', left: 80, top: 80, color: '#0F172A', fontWeight: 700, fontSize: 23 }}>{brand.issuerName}</Text>
+        <View style={{ position: 'absolute', left: 80, top: 80, flexDirection: 'row', alignItems: 'center' }}>
+          {brand.logoUrl ? <IssuerLogo logoUrl={brand.logoUrl} size={28} style={{ marginRight: 10 }} /> : null}
+          <Text style={{ color: '#0F172A', fontWeight: 700, fontSize: 23 }}>{brand.issuerName}</Text>
+        </View>
         {brand.issuerTagline ? <Text style={{ position: 'absolute', left: 80, top: 110, color: '#6B7280', fontSize: 11 }}>{brand.issuerTagline}</Text> : null}
         <Text style={{ position: 'absolute', left: 0, width: PAGE_WIDTH, textAlign: 'center', top: 236, color: '#0F2340', fontSize: 19, fontWeight: 700 }}>CERTIFICATE OF COMPLETION</Text>
         <Text style={{ position: 'absolute', left: 0, width: PAGE_WIDTH, textAlign: 'center', top: 280, fontFamily: SERIF, fontWeight: 700, fontSize: 50, color: '#0F172A' }}>{data.traineeName}</Text>
@@ -31,7 +36,7 @@ export function DecoCertificate({ brand, data }: TemplateProps) {
         <Text style={{ position: 'absolute', left: 0, width: PAGE_WIDTH, textAlign: 'center', top: 408, fontFamily: SERIF, fontWeight: 700, fontSize: 26, color: '#0F172A' }}>{data.programTitle}</Text>
         <Text style={{ position: 'absolute', left: 0, width: PAGE_WIDTH, textAlign: 'center', top: 454, color: '#6B7280', fontSize: 12 }}>{meta(data)}</Text>
         <View style={{ position: 'absolute', left: 80, bottom: 150, width: 220, borderTopWidth: 1, borderTopColor: '#CBD5E1', borderTopStyle: 'solid', paddingTop: 12 }}>
-          <Text style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 18, color: '#0F172A' }}>{brand.signatoryName}</Text>
+          <Signature signatureImageUrl={brand.signatureImageUrl} signatoryName={brand.signatoryName} />
           <Text style={{ fontSize: 10, color: '#6B7280' }}>{brand.signatoryTitle}</Text>
         </View>
         <View style={{ position: 'absolute', left: 568, bottom: 56 }}>

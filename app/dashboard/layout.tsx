@@ -1,11 +1,19 @@
-import { requireIssuerSession } from '@/lib/auth/issuer';
+import { requireApprovedIssuerSession } from '@/lib/auth/issuer';
+import { getIssuerNavItems } from '@/lib/issuer-nav';
+import { IssuerShell } from '@/components/IssuerShell';
 
-// Guards every issuer dashboard page. requireIssuerSession() (lib/auth/
-// issuer.ts) redirects unauthenticated visitors to /login, and redirects any
-// account that has an admin_users row to /staff instead — the other half of
-// "issuer and staff sessions never cross over" alongside app/staff/(console)/
-// layout.tsx.
+// Guards every issuer dashboard page. requireApprovedIssuerSession()
+// (lib/auth/issuer.ts) redirects unauthenticated visitors to /login, staff
+// accounts to /staff, and any org that isn't yet approved to /apply or
+// /apply/status — the dashboard only exists for approved issuers
+// (docs/sitemap.md §5).
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  await requireIssuerSession();
-  return <>{children}</>;
+  const { orgName } = await requireApprovedIssuerSession();
+  const navItems = getIssuerNavItems();
+
+  return (
+    <IssuerShell navItems={navItems} orgName={orgName}>
+      {children}
+    </IssuerShell>
+  );
 }
