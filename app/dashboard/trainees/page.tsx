@@ -14,7 +14,7 @@ export default async function TraineesPage() {
 
   const { data: trainees } = await supabase
     .from('trainees')
-    .select('id, full_name, photo_url, state, lga, open_to_hire, training_programs(title)')
+    .select('id, full_name, photo_url, country, region, locality, open_to_hire, training_programs(title)')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
@@ -45,7 +45,9 @@ export default async function TraineesPage() {
                 )}
                 <p className="text-certified-ink">{t.full_name}</p>
                 <p className="text-sm text-certified-muted">{program?.title ?? '—'}</p>
-                <p className="text-xs text-certified-muted">{[t.state, t.lga].filter(Boolean).join(', ') || 'No location set'}</p>
+                <p className="text-xs text-certified-muted">
+                  {[t.locality, t.region, t.country].filter(Boolean).join(', ') || 'No location set'}
+                </p>
               </div>
             );
           })}

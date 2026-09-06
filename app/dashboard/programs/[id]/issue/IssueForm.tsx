@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react';
 import { issueCertificate, type IssueFormState } from './actions';
+import { LocationFields } from '@/components/LocationFields';
 
 export function IssueForm({ programId }: { programId: string }) {
   const [state, formAction, pending] = useActionState<IssueFormState, FormData>(issueCertificate, null);
@@ -29,10 +30,7 @@ export function IssueForm({ programId }: { programId: string }) {
 
       <TextAreaField label="Short bio for the public directory (optional)" name="bio" />
 
-      <div className="flex gap-4">
-        <Field label="State (optional)" name="state" />
-        <Field label="LGA (optional)" name="lga" />
-      </div>
+      <LocationFields countryName="country" regionName="region" localityName="locality" />
 
       <div className="flex gap-4">
         <Field label="Completion date" name="completion_date" type="date" required />

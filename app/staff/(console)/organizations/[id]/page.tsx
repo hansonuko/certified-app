@@ -38,7 +38,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
       <section className="grid grid-cols-2 gap-4 rounded-card border border-certified-border p-6 text-sm">
         <Field label="Legal name" value={org.legal_name} />
         <Field label="RC/CAC number" value={org.rc_number ?? '—'} />
-        <Field label="Address" value={[org.address_street, org.address_lga, org.address_state].filter(Boolean).join(', ') || '—'} />
+        <Field label="Address" value={[org.address_street, org.address_locality, org.address_region, org.address_country].filter(Boolean).join(', ') || '—'} />
         <Field label="Expected trainee volume" value={org.trainee_volume_band ?? '—'} />
         <Field label="Owner" value={org.owner_full_name} />
         <Field label="Phone" value={org.owner_phone} />
