@@ -31,7 +31,7 @@ export function StaffShell({
   return (
     <div className="flex min-h-screen">
       <aside className="w-60 shrink-0 bg-slate-900 text-slate-100">
-        <div className="p-6 font-display text-xl">Certified</div>
+        <div className="p-6 font-display text-xl">Certified Africa</div>
         <nav className="flex flex-col gap-1 px-3">
           {navItems.map((item) => (
             <Link

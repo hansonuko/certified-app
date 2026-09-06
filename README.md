@@ -1,8 +1,8 @@
-# Certified
+# Certified Africa
 
-**Certified** is a trust infrastructure platform for training providers. Approved businesses, training centres, and individual trainers use Certified to issue branded, gold-sealed certificates that are instantly and publicly verifiable — and to give their certified trainees a discoverable, hireable public profile.
+**Certified Africa** is a trust infrastructure platform for training providers. Approved businesses, training centres, and individual trainers use Certified Africa to issue branded, gold-sealed certificates that are instantly and publicly verifiable — and to give their certified trainees a discoverable, hireable public profile.
 
-Certified designs the certificate. The issuer supplies the people and the training. The public verifies with one scan.
+Certified Africa designs the certificate. The issuer supplies the people and the training. The public verifies with one scan.
 
 ## What this repo contains
 
@@ -13,7 +13,7 @@ Certified designs the certificate. The issuer supplies the people and the traini
 | `docs/sitemap.md` | Every page in the product — public site, issuer dashboard, staff console — with role access per page |
 | `docs/design-system.md` | Visual design system — brand, typography, motion, interaction/hover states, responsive dashboard patterns, certificate templates |
 | `docs/build-phases.md` | Phase-by-phase build plan with Claude Code prompts + account setup checklist |
-| `docs/declaration-form.md` | Individual trainer self-attestation form (NIN path) |
+| `docs/declaration-form.md` | Individual trainer self-attestation form (identification-document path) |
 | `lib/certificates/GoldSeal.tsx` | The mandatory gold seal, PDF version (react-pdf component; no standalone SVG file) |
 | `components/GoldSeal.tsx` | The same gold seal, browser version — verification page, badges, marketing site |
 

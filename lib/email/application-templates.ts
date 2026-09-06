@@ -4,15 +4,15 @@
 
 export function applicationApprovedEmail(orgName: string) {
   return {
-    subject: `${orgName} is approved on Certified`,
-    html: `<p>Good news — <strong>${orgName}</strong> has been approved on Certified.</p>
+    subject: `${orgName} is approved on Certified Africa`,
+    html: `<p>Good news — <strong>${orgName}</strong> has been approved on Certified Africa.</p>
 <p>Sign in to set up your brand and start issuing certificates.</p>`,
   };
 }
 
 export function applicationMoreInfoEmail(orgName: string, reason: string) {
   return {
-    subject: `Certified needs more information about ${orgName}`,
+    subject: `Certified Africa needs more information about ${orgName}`,
     html: `<p>We need a bit more information before we can approve <strong>${orgName}</strong>:</p>
 <blockquote>${escapeHtml(reason)}</blockquote>
 <p>Sign in and update your application to continue.</p>`,
@@ -21,7 +21,7 @@ export function applicationMoreInfoEmail(orgName: string, reason: string) {
 
 export function applicationRejectedEmail(orgName: string, reason: string) {
   return {
-    subject: `Update on your Certified application for ${orgName}`,
+    subject: `Update on your Certified Africa application for ${orgName}`,
     html: `<p>We're not able to approve <strong>${orgName}</strong> at this time:</p>
 <blockquote>${escapeHtml(reason)}</blockquote>
 <p>You're welcome to reapply immediately — there's no cooldown period.</p>`,

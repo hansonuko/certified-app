@@ -1,10 +1,10 @@
 # CLAUDE.md — working guide for this repo
 
-This file orients any Claude Code session working on Certified. Read `docs/blueprint.md`, `docs/roles-permissions.md`, `docs/sitemap.md`, and `docs/design-system.md` before starting a new phase if you haven't already this session.
+This file orients any Claude Code session working on Certified Africa. Read `docs/blueprint.md`, `docs/roles-permissions.md`, `docs/sitemap.md`, and `docs/design-system.md` before starting a new phase if you haven't already this session.
 
 ## What this project is
 
-Certified issues branded, verifiable training certificates on behalf of approved businesses/trainers, and runs a public directory of certified individuals. Full context: `docs/blueprint.md`.
+Certified Africa issues branded, verifiable training certificates on behalf of approved businesses/trainers, and runs a public directory of certified individuals. Full context: `docs/blueprint.md`.
 
 ## Non-negotiable rules (do not shortcut these, even under a "let's just get it working" request)
 

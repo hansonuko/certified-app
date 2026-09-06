@@ -1,5 +1,5 @@
 /**
- * Certified's mandatory trust mark (docs/design-system.md §5) — browser/web version.
+ * Certified Africa's mandatory trust mark (docs/design-system.md §5) — browser/web version.
  * Fixed artwork — never recolored to an issuer's brand color, never resized below
  * legibility, never rotated. Reused everywhere the platform represents its own trust
  * mark outside of PDF output: verification page header, "Approved Issuer" badge,

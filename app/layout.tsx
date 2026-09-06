@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Certified',
+  title: 'Certified Africa',
   description:
     'Trust infrastructure for training providers — branded, verifiable certificates and a public directory of certified individuals.',
 };
