@@ -8,6 +8,9 @@ import { uploadTraineePhoto } from '@/lib/storage/trainee-photos';
 import { issueCertificate as issueCertificateCore, formatDateRangeLabel, addMonthsToDate } from '@/lib/certificates/issue';
 import type { TemplateId } from '@/lib/certificates/templates';
 import type { BrandConfig } from '@/lib/certificates/types';
+import { generateClaimToken, claimTokenExpiresAt } from '@/lib/trainees/claim-token';
+import { claimProfileEmail } from '@/lib/email/claim-templates';
+import { sendEmail } from '@/lib/email/send';
 
 export type IssueFormState = { error: string } | null;
 
@@ -77,12 +80,37 @@ export async function issueCertificate(_prev: IssueFormState, formData: FormData
 
   const { data: trainee, error: traineeError } = await supabase
     .from('trainees')
-    .insert({ org_id: orgId, program_id: programId, full_name: fullName, photo_url: photoUrl, bio, phone, email, country, region, locality })
-    .select('id')
+    .insert({
+      org_id: orgId,
+      program_id: programId,
+      full_name: fullName,
+      photo_url: photoUrl,
+      bio,
+      phone,
+      email,
+      country,
+      region,
+      locality,
+      claim_token: generateClaimToken(),
+      claim_token_expires_at: claimTokenExpiresAt(),
+    })
+    .select('id, claim_token')
     .single();
 
   if (traineeError || !trainee) {
     return { error: `Could not create trainee record: ${traineeError?.message ?? 'unknown error'}` };
+  }
+
+  // Best-effort — a flaky email send should never fail an otherwise-successful
+  // issuance (docs/build-phases.md Phase 8). Many trainees won't have an email
+  // at all, hence the guard.
+  if (email && trainee.claim_token) {
+    const claimUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/claim/${trainee.claim_token}`;
+    try {
+      await sendEmail({ to: email, ...claimProfileEmail({ traineeName: fullName, orgName: org.display_name, claimUrl }) });
+    } catch (err) {
+      console.error('Claim-link email failed to send:', err);
+    }
   }
 
   const expiryDate = program.certificate_validity_months
