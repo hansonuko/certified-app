@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Container, PageHeader } from '@/components/marketing/shared';
-import { LegalSection, LegalDraftNotice } from '@/components/marketing/Legal';
+import { LegalSection } from '@/components/marketing/Legal';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -13,7 +13,6 @@ export default function PrivacyPage() {
   return (
     <Container className="flex flex-col gap-10 py-16 sm:py-20">
       <PageHeader eyebrow="Legal" title="Privacy Policy" subtitle={`Last updated: ${LAST_UPDATED}`} />
-      <LegalDraftNotice />
 
       <div className="flex max-w-3xl flex-col gap-10">
         <LegalSection title="1. Who this applies to">

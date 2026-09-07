@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Container, PageHeader } from '@/components/marketing/shared';
-import { LegalSection, LegalDraftNotice } from '@/components/marketing/Legal';
+import { LegalSection } from '@/components/marketing/Legal';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
@@ -13,7 +13,6 @@ export default function TermsPage() {
   return (
     <Container className="flex flex-col gap-10 py-16 sm:py-20">
       <PageHeader eyebrow="Legal" title="Terms of Service" subtitle={`Last updated: ${LAST_UPDATED}`} />
-      <LegalDraftNotice />
 
       <div className="flex max-w-3xl flex-col gap-10">
         <LegalSection title="1. What Certified Africa is">
