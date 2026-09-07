@@ -11,26 +11,12 @@ import { ClaimConfirmForm } from './ClaimConfirmForm';
  * claim_token (correctly so; the existing policies only cover org-owner,
  * self-claimed, and staff reads, supabase/migrations/0006_trainees.sql). The
  * actual link-up happens in ./actions.ts's claimProfile(), which
- * re-validates the token from scratch rather than trusting this render.
+ * re-validates the token from scratch rather than trusting this render, and
+ * redirects straight to the profile editor (/profile/[id]) on success — this
+ * page never renders a "claimed" state of its own.
  */
-export default async function ClaimPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ token: string }>;
-  searchParams: Promise<{ done?: string }>;
-}) {
+export default async function ClaimPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const { done } = await searchParams;
-
-  if (done) {
-    return (
-      <ClaimStatus
-        title="Profile claimed"
-        message="Your Certified Africa profile is now linked to your account. Profile editing tools (photo, bio, contact preferences) are coming soon."
-      />
-    );
-  }
 
   const admin = createAdminClient();
   const { data: trainee } = await admin
