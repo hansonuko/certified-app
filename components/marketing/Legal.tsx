@@ -4,9 +4,9 @@
 
 export function LegalDraftNotice() {
   return (
-    <div className="max-w-3xl rounded-card border border-dashed border-certified-border bg-certified-surface-2 p-4 text-sm text-certified-muted">
+    <div className="max-w-3xl rounded-card border border-dashed border-certified-border bg-certified-surface-2 p-4 text-sm text-certified-muted dark:bg-white/[0.04] dark:backdrop-blur-xl">
       This is drafted as a strong starting point, the same way{' '}
-      <code>docs/declaration-form.md</code> was — it has not been reviewed by a lawyer yet. Treat it as a real policy
+      <code>docs/declaration-form.md</code> was, it has not been reviewed by a lawyer yet. Treat it as a real policy
       in effect today, not placeholder text, but one that should still get a proper legal review (ideally from
       someone familiar with data-protection law across the countries Certified Africa actually operates in) before
       it's relied on for anything high-stakes.
