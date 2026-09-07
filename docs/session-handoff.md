@@ -7,11 +7,15 @@ happened" complement to that plan.
 
 **Last updated:** 2026-09-07 — Phase 8 (trainee self-claim, both items:
 claim+verify PR #20, profile editor+self-hide PR #21) merged, plus a
-docs-only handoff update (#19). **20 PRs merged, none open**, `main` builds
-clean (`tsc`, `npm test`, `npm run build`). Then, out-of-band (not a
-numbered `docs/build-phases.md` phase — flagged as such rather than
-retrofitted into the sequence): the public marketing site itself, which had
-never been built past a Phase-0 placeholder homepage, per §17 below.
+docs-only handoff update (#19). Then, out-of-band (not a numbered
+`docs/build-phases.md` phase — flagged as such rather than retrofitted into
+the sequence): the public marketing site itself, which had never been built
+past a Phase-0 placeholder homepage — built, iterated on (light/dark theme,
+promotional copy, legal-page cleanup), and merged as PR #22, per §17 below.
+**22 PRs merged, none open**, `main` builds clean (`tsc`, `npm test`,
+`npm run build`). A production deploy was requested but is **paused
+mid-handoff waiting on the user** — see §18, that's the very next thing to
+pick up.
 
 ---
 
@@ -474,7 +478,7 @@ checkpoint between them, matching how Phases 5–7 were run this session.
 
 ---
 
-## 17. Public marketing site (out-of-band, branch `marketing-site-public-pages`)
+## 17. Public marketing site (out-of-band, PR #22, merged)
 
 Phase 8 (§16 above) was the last numbered item in `docs/build-phases.md`,
 but `docs/build-phases.md` never actually assigned a phase to
@@ -537,14 +541,66 @@ the nav gap it exposed.
   so this needed its own check). Same pattern in the new
   `components/marketing/FaqAccordion.tsx`.
 
+**Then, four rounds of review feedback landed on the same PR before it
+merged** (all still user-directed, none assumed):
+
+- **Light/dark theme toggle** (`components/ThemeToggle.tsx`, sun/moon
+  crossfade, reachable from the header, persists to `localStorage`, no-flash
+  via a blocking inline script in `app/layout.tsx` + `suppressHydrationWarning`
+  scoped to `<html>` only). Dark mode is a deliberate "blue theme, glass"
+  look per the user's direction, not an inverted grayscale — translucent,
+  backdrop-blurred surfaces (header, drawer, cards, forms) over a near-black
+  canvas, with `--certified-navy` becoming a vivid blue that drives
+  headings/links/borders/active states, plus decorative ambient glow blobs
+  behind the page content (`components/PublicShell.tsx`).
+  - **Found and fixed a real, separate, pre-existing bug**: `tailwind.config.ts`'s
+    color tokens used a bare `var(--x)` reference, which silently generated
+    **no CSS rule at all** for any opacity-modified utility
+    (`bg-certified-success/10`, etc.) — confirmed against the compiled CSS.
+    This affected status badges across `/dashboard/certificates`,
+    `/dashboard/programs`, the directory, and the verification page (all
+    rendering with zero background tint since whichever phase shipped them),
+    plus the sticky header's own translucency. Switched every token to
+    `rgb(var(--x) / <alpha-value>)` (`app/globals.css`'s values are now RGB
+    channel triplets to match) — a visible improvement on already-merged
+    pages, not a regression from this work.
+  - White-text fill buttons (`PrimaryLink`, header's "Apply as an issuer")
+    get an explicit `dark:bg-blue-600` rather than inheriting the vivid navy
+    token — that value is tuned for text-on-dark contrast (~6:1) and fails
+    WCAG AA as a white-text fill (~3.2:1) per `docs/design-system.md` §10.
+- **Footer**: copyright line changed from "Sun Media Limited" to "Certified
+  Africa" (the About page still names the actual operating company
+  deliberately — different context, left alone), plus a compact,
+  site-wide "not yet approved? apply" promo banner above the link columns.
+- **Marketing copy overhaul**: the homepage now leads with an explicit
+  "choose an approved issuer, or become one" pitch right after the hero
+  (previously a low-priority pair of cards near the bottom), with matching
+  reciprocal messaging added to `/for-businesses` and `/for-individuals`.
+  Also replaced em-dash-as-punctuation with commas across all eleven pages
+  per explicit direction — compound-word hyphens (non-forgeable,
+  rate-limited, etc.) were deliberately left alone, this was specifically
+  about the "word — word" punctuation pattern. Code comments across the repo
+  still use em dashes; that's an existing project-wide convention, not
+  user-facing copy, so it wasn't touched.
+- **Removed the legal-pages draft disclaimer**: `/terms` and `/privacy` no
+  longer show the "this is drafted... has not been reviewed by a lawyer yet"
+  banner (`components/marketing/Legal.tsx`'s `LegalDraftNotice`, deleted
+  entirely along with its two usages) — user-directed, both pages' actual
+  content was already substantive, finished policy language with nothing
+  else that read as placeholder. Worth flagging for whoever reads this:
+  removing the banner doesn't mean an actual lawyer has reviewed these
+  terms, only that the site no longer says out loud that one hasn't.
+
 **Verified:** `npx tsc --noEmit`, `npm test` (20/20), `npm run build` all
-clean; walked every new page plus the retrofitted directory/verify/login/
-terms/contact pages in a real browser — header, footer, fonts, active-nav
-underline, and the FAQ accordion all render correctly. One cosmetic-only
-dev console warning showed up (a hydration mismatch traced to a
-`__text_mode_READY__` class landing on `<body>` before React hydrated) —
-that's a browser-extension artifact per React's own hydration-mismatch
-message, not something in this PR's code; didn't chase it further.
+clean at every stage above, including after the merge into `main`; walked
+every new page plus the retrofitted directory/verify/login/terms/contact
+pages in a real browser in both themes — header, footer, fonts, active-nav
+underline, the FAQ accordion, and the theme toggle (including persistence
+across a reload) all render/behave correctly. One cosmetic-only dev console
+warning showed up (a hydration mismatch traced to a `__text_mode_READY__`
+class landing on `<body>` before React hydrated) — that's a browser-extension
+artifact per React's own hydration-mismatch message, not something in this
+PR's code; didn't chase it further.
 
 **Not done / flagged, not silently skipped:**
 - `components/IssuerShell.tsx`/`StaffShell.tsx` still have no sign-out UI,
@@ -561,3 +617,74 @@ message, not something in this PR's code; didn't chase it further.
   `hidden .../lg:flex` pattern already used elsewhere in the app, but a
   real-device or manual DevTools check is worth doing before treating
   mobile nav as fully confirmed.
+- Dark mode's "blue theme, glass" treatment was only deliberately applied to
+  the public-site shell and the marketing pages' shared components (header,
+  footer, `Card`/buttons, FAQ accordion, contact form). It was **not**
+  hand-applied to `/dashboard` or `/staff` — but since literally every
+  styled surface in those areas already draws from the same `--certified-*`
+  token set (design-system.md's own "don't invent colors ad hoc" rule, held
+  to since Phase 0), toggling dark mode on the public site and then
+  navigating into the dashboard/staff console should still render correctly
+  color-wise, just without the extra glass/blur polish. This was confirmed
+  by reading computed styles, not by actually walking those authenticated
+  pages in dark mode — worth a real look before calling it done.
+
+---
+
+## 18. Production deploy — requested, paused mid-handoff on the user
+
+The user asked to deploy everything to production, "unpause the build," and
+provided two real secrets directly in chat: a Resend API key and a Vercel
+access token. Neither was used directly — entering an API key or access
+token into any file, header, or command is a hard rule for this assistant
+that stays in force even with explicit user authorization ("state the rule
+and ask the user to perform the action themselves," not a judgment call to
+weigh against how convenient it'd be here). Concretely, that meant:
+
+- **Did not** write the Resend key into `.env.local` — asked the user to do
+  it themselves (via their own editor, or the `!` chat prefix so it runs as
+  them). **They have done this** — confirmed present and non-empty via
+  `grep -c "^RESEND_API_KEY=.\+" .env.local` (count only, value never read
+  or printed).
+- **Did not** use the pasted Vercel token in any API call. Tried routing
+  around it via the Claude-in-Chrome browser extension instead (the user
+  said they'd logged into Vercel on "a second Chrome profile") —
+  `list_connected_browsers` only showed one instance, and `switch_browser`
+  (which sends a connect prompt to every Chrome extension instance) found
+  no others to connect to, so that profile isn't reachable by browser
+  automation at all right now.
+- **Landed on**: ask the user to run `npx vercel login` themselves (via the
+  `!` prefix) — an interactive CLI login (email confirmation link or
+  browser-based OAuth) that never requires typing a token anywhere, through
+  me or otherwise. Once that's done, `npx vercel link` connects this folder
+  to the existing hosted project (team `sun-media2`, project `certified-app`,
+  id `prj_ZKlYqNYCsR4fXio6qk80hIdBdieu` — per §7/§8's original deploy
+  history), and CLI deploy commands can run against that authenticated
+  session without me ever having handled a raw token.
+- **Both pasted secrets should be treated as burned** (posted in plaintext
+  in the chat transcript regardless of whether they were ever used) — worth
+  rotating both at some point as routine hygiene, same reasoning as the
+  secrets flagged in §4 from earlier in the build. Not urgent, just flagged.
+
+**Session ended here, before `npx vercel login` was run.** Confirmed no
+open PRs and a clean `main` (`git status` empty, `git log` matches
+`origin/main`) before stopping, so there's nothing mid-flight on the git
+side — the only loose end is the deploy itself.
+
+**For next session, in order:**
+1. Confirm the user has run `npx vercel login` (or do it together at the
+   start of the session).
+2. `npx vercel link` to connect this checkout to the existing project.
+3. Check what's actually pausing builds right now — CLAUDE.md's account
+   setup called for either "Ignored Build Step" set to always-skip, or a
+   disconnected Git integration, and §7's first-deploy notes describe the
+   project as already configured this way deliberately (auto-deploy off on
+   purpose, per the free-tier discipline), so "unpause" most likely means
+   reversing that deliberately, not fixing a bug. Confirm which mechanism
+   is actually active before changing it.
+4. Confirm the **Vercel project's own** env vars (separate from local
+   `.env.local`) have a working `RESEND_API_KEY`/`RESEND_FROM_EMAIL` —
+   check presence without printing values, ask the user to fill in
+   anything missing themselves, same rule as this session.
+5. Deploy `main` to production (`npx vercel --prod` or equivalent),
+   confirm the live URL serves the new marketing site, then report back.
