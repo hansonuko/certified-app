@@ -5,10 +5,13 @@ verified, what's still open. Read this alongside `docs/build-phases.md`
 (the plan) before starting a new phase; this doc is the "what actually
 happened" complement to that plan.
 
-**Last updated:** 2026-09-06 — Phase 4 merged (PR #9, after fixing a
-migration deadlock and a `CREATE OR REPLACE FUNCTION` shape error along the
-way, see §11), then the project's scope changed to pan-African under the
-name **Certified Africa** — see §11 for what that touched.
+**Last updated:** 2026-09-06 — Phases 5, 6, and 7 all merged (PRs #11–#17),
+plus an out-of-band fix/UX PR (#18: an `/apply` hang, password-visibility
+toggles, staff password reset — see §15). **18 PRs merged, none open.**
+Migrations `0001`–`0022` all confirmed live on the hosted project (checked
+directly, not from memory — see §2). **Phase 8 (trainee self-claim) is
+next up** — see §16 for its scope and the real open design questions to
+settle before building it.
 
 ---
 
@@ -17,434 +20,454 @@ name **Certified Africa** — see §11 for what that touched.
 | Phase | Status | PR | Notes |
 |---|---|---|---|
 | 0 — Foundation | ✅ merged | #1 | Next.js scaffold, Supabase schema (0001–0009), auth (issuer + staff/MFA), `lib/permissions.ts` |
-| 0.5 — Super Admin Bootstrap | ✅ merged | #2 | First Admin created live: **Hanson Uko / certifiedafrica1@gmail.com** — see §4. **Recreated once**, see §10 — current admin id is `faa4335d-9ef8-4a36-957b-8714478e7e23`, the original `e48e2f37-9879-4178-8d7e-cc4bfce563e0` no longer exists |
-| 1 — Applicant onboarding | ✅ merged | #3 | Identification-based (NIN dropped per explicit direction), migration 0010 |
+| 0.5 — Super Admin Bootstrap | ✅ merged | #2 | First Admin created live: **Hanson Uko / certifiedafrica1@gmail.com** — see §4. **Recreated once**, see §10 — current admin id is `faa4335d-9ef8-4a36-957b-8714478e7e23` |
+| 1 — Applicant onboarding | ✅ merged | #3 | Identification-based (NIN dropped), migration 0010 |
 | 2 — Staff console + application review | ✅ merged | #4 | `/staff/applications`, approve/request-info/reject, audit log, email |
-| 2.5 — Organizations (partial, by design) | ✅ merged | #5 | Only `/staff/organizations` — Certificates/Revocations/Moderation/Support deferred to Phases 4/5/6, see §3 |
-| 3 — Brand setup & templates | ✅ merged | #6 | Dashboard shell, brand wizard, migration 0011, real fonts, logo+signature rendering fixed on all 10 templates |
-| 4 — Certificate issuance & verification | ✅ merged | #9 | Program CRUD, single-trainee issuance + signing/QR/PDF, `/verify`, issuer-initiated revocation. Migrations 0012–0015 |
+| 2.5 — Organizations (partial, by design) | ✅ merged | #5 | Only `/staff/organizations` — Revocations/Moderation/Support still deferred, see §3 |
+| 3 — Brand setup & templates | ✅ merged | #6 | Dashboard shell, brand wizard, migration 0011, real fonts, all 10 templates |
+| 4 — Certificate issuance & verification | ✅ merged | #9 | Program CRUD, single-trainee issuance, `/verify`, revocation. Migrations 0012–0015 |
+| — Rebrand: pan-African "Certified Africa" | ✅ merged | #10 | See §11. Migrations 0016–0017 |
+| 5 — Public directory & search | ✅ merged | #11, #12, #13 | `/directory`, `/directory/trainee/[id]`, `/directory/org/[slug]`. Migrations 0018–0019 |
+| 6 — Contact/hire flow | ✅ merged | #14, #15 | Reveal-or-relay on both trainee and issuer public profiles. Migration 0020 |
+| 7 — Bulk/CSV cohort issuance | ✅ merged | #16, #17 | CSV upload/validate/enqueue + Cron-or-page-view-driven processor. Migrations 0021–0022 |
+| — `/apply` hang fix + password UX + staff reset | ✅ merged | #18 | See §15. No schema change |
+| 8 — Trainee self-claim | **not started** | — | Next up, see §16 |
 
-9 PRs merged in order as of this writing. `main` built clean
-(`npx tsc --noEmit`, `npm run build`, `npm test`) as of `2018f27`, before the
-pan-African rebrand work in §11 (not yet merged as of this update — see
-§11 for its own migrations 0016–0017, still pending against the hosted
-project).
+18 PRs merged in order, none open as of this writing. `main` builds clean
+(`npx tsc --noEmit`, `npm test`) as of `3d62145` — `npm run build` wasn't
+re-run after the very latest commits specifically to avoid disrupting a
+live dev server a session had open for the user's own testing; worth a
+fresh `npm run build` early in the next session just to confirm, since
+it's cheap insurance.
 
 ---
 
 ## 2. Live infrastructure
 
-**Vercel (production)**: https://certified-app-lime.vercel.app — live and
-working as of this update. See §8 for what broke on first deploy and how
-it was fixed; production has its own `CERTIFICATE_SIGNING_SECRET` and
-`ALTCHA_HMAC_SECRET`, deliberately different from `.env.local`'s.
+**Vercel (production)**: https://certified-app-lime.vercel.app — live as
+of the Phase 4 era (§8). Not redeployed since — Phases 5–7 and the #18
+fixes only exist on `main`/hosted Supabase, not on production yet. `vercel.json`
+(added in Phase 7) declares a Cron job hitting `/api/cron/process-bulk-
+issuance` every 5 minutes — this has **never actually run**, since it only
+fires once deployed, and **`CRON_SECRET` is not yet set on the Vercel
+project** (only documented in `.env.example`, blank in `.env.local` too).
+Before the next real production deploy: generate and set `CRON_SECRET` on
+both `.env.local` and the Vercel project's env vars, or the Cron route's
+auth check has nothing to check against (it no-ops the check entirely when
+the env var is unset — fine for local dev, not for production).
 
-**Supabase project**: `wvcvzeybvloamkkghckp` (hosted, not local — no Docker/
-Supabase CLI in this environment, so `supabase start` was never used; every
-migration was applied by hand via the Dashboard's SQL Editor).
+**Supabase project**: `wvcvzeybvloamkkghckp` (hosted, not local — still no
+Docker/Supabase CLI in this environment).
 
-Migrations `0001`–`0011` all applied and confirmed live. Schema covers:
-`organizations`, `applications`, `training_programs`, `trainees`,
-`certificates`, `admin_users`, `audit_log`, plus the `application-documents`
-(private) and `org-brand-assets` (public) Storage buckets.
+**Migrations `0001`–`0022` all confirmed applied** — verified directly this
+session via a throwaway script querying real columns/tables through the
+service-role client (not assumed from memory or from what was "sent").
+Schema now covers: `organizations` (+ `slug`/`bio`/`training_fields`/pan-
+African address columns), `applications`, `training_programs` (+
+`certificate_validity_months`), `trainees` (+ pan-African location columns,
+`claim_token`/`claimed`/`claimed_by_user_id` already present since 0006 but
+**still unused** — see §16), `certificates`, `admin_users`, `audit_log` (+
+`actor_user_id`, actor_type now `system`/`staff`/`issuer`), `jobs` (+
+`processing_lock_expires_at`), plus views `organizations_public_view` /
+`trainees_public_view` / `directory_listings_view` and the
+`verify_certificate()` function. Storage buckets: `application-documents`
+(private), `org-brand-assets`, `certificates`, `trainee-photos` (all three
+public).
 
-**First Admin**: created via `scripts/bootstrap-admin.ts` against the live
-project. `ADMIN_BOOTSTRAP_SECRET` has been blanked out in `.env.local`
-afterward per its own spec (docs/roles-permissions.md §4 step 3) — the
-bootstrap script will refuse to run again regardless (zero-count check),
-but the secret is gone too as belt-and-suspenders.
+**Lesson learned this session, worth repeating**: `CREATE OR REPLACE
+VIEW`/`FUNCTION` can only *append* new output columns — it cannot rename or
+reorder existing ones (Postgres `42P16`/`42P13`). Every migration this
+session that changed an existing view/function's shape used `DROP ... IF
+EXISTS` first; every migration that only *added* columns used a plain
+`CREATE OR REPLACE` safely. Check which case you're in before writing the
+next one.
 
-**`.env.local`** (gitignored, not committed) — what's actually filled in:
+**First Admin**: unchanged since §10 — `ADMIN_BOOTSTRAP_SECRET` stays
+blank in `.env.local`, script refuses to run again regardless.
+
+**`.env.local`** — status since the last update:
 
 | Var | Status |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | ✅ set, live project |
-| `CERTIFICATE_SIGNING_SECRET` | ✅ set (generated locally, not yet exercised — no issuance code exists until Phase 4) |
-| `ALTCHA_HMAC_SECRET` | ✅ set, verified working (real proof-of-work solve confirmed live in Phase 1 testing) |
-| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | ✅ set, but **mocked to console outside production** (`lib/email/send.ts`) — never actually sent a real email yet, by design |
-| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | ❌ **empty** — the credential given early on was a `redis://` TCP string, not the REST API URL+token these need. Nothing in the app uses Upstash yet, so this hasn't blocked anything, but it will the moment a phase needs real rate-limiting (verification endpoint, contact-reveal) |
-| `ADMIN_BOOTSTRAP_SECRET` | ❌ empty (intentional, see above) |
+| `CERTIFICATE_SIGNING_SECRET` / `ALTCHA_HMAC_SECRET` | ✅ set, both actively exercised now (issuance + application/contact forms) |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | ✅ set, still **mocked to console outside production** (`lib/email/send.ts`) |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | ❌ **still empty**. `/verify` and the contact relay both run on in-memory rate limiters (`lib/rate-limit/verify-limiter.ts`, `lib/rate-limit/contact-limiter.ts`) behind a `RateLimiter` interface real Upstash can drop into later |
+| `ADMIN_BOOTSTRAP_SECRET` | ❌ empty (intentional) |
+| `CRON_SECRET` | ❌ empty locally (fine for dev — the Cron route's auth check no-ops when unset) — **must be set before a real Vercel deploy**, see above |
 
-**Not configured at all**: Google OAuth (needs a Client ID/Secret entered
-in Supabase Dashboard → Authentication → Providers → Google — this isn't
-an env var, so there's nothing to check into `.env.local`). The "Continue
-with Google" button exists in the UI and will error if clicked; email/
-password auth is unaffected.
+**Not configured at all**: Google OAuth (unchanged from before).
 
 ---
 
 ## 3. Known open items (flagged along the way, not silently patched)
 
-1. **No resubmission path yet.** `/apply` redirects anyone who already has
-   an Organization straight to `/apply/status`, regardless of status. There's
-   no UI for an applicant to submit a *second* Application after a rejection,
-   even though `docs/blueprint.md` §3.1's "no cooldown, reapply immediately"
-   decision assumes one exists. The staff review queue's "resubmitted"
-   filter (Phase 2) is ready for this the moment it exists. Flagged in PR #4,
-   never addressed since — worth deciding whether it's near-term or deferred.
-2. **Certificate PDF font paths won't resolve server-side as-is.**
-   `lib/certificates/fonts.ts` registers fonts with web-relative paths
-   (`/fonts/...ttf`), which work fine for the brand wizard's live preview
-   (browser-side `<PDFViewer>`) but won't resolve when actual certificate
-   generation happens server-side in a Vercel function (Phase 4) — Node
-   needs an absolute URL or filesystem path. Flagged back in the Phase 0
-   PR, still unresolved — needs a decision in Phase 4 (build the absolute
-   URL from `NEXT_PUBLIC_APP_URL` at render time, or read the `.ttf` files
-   from disk via `fs`).
-3. **`CertificateData` assembly gap.** `durationLabel`/`dateRangeLabel` on
-   the shared certificate types have no direct column on `Certificate`
-   (`docs/blueprint.md` §4) — they come from `TrainingProgram` at
-   render/issuance time via a join. Worth confirming this is what Phase 4
-   actually intends before building the issuance action.
-4. **Phase 2.5 is intentionally incomplete.** `/staff/certificates`,
-   `/staff/revocations`, `/staff/moderation`, `/staff/support` were all
-   deferred — they depend on Certificates/Trainees/a public contact form
-   that don't exist until Phases 4/5/6. Don't be surprised these routes
-   aren't in the staff nav yet; that's by design, not an oversight.
-5. **Upstash is unconfigured** (see §2) — any phase that needs real rate
-   limiting (verification endpoint per CLAUDE.md rule #6, contact-reveal
-   per rule #5) will need the correct REST credentials first.
+1. **No resubmission path yet.** `/apply` still redirects anyone who
+   already has an Organization straight to `/apply/status`, regardless of
+   status — still no UI for a second Application after a rejection.
+   Flagged since PR #4, still unaddressed.
+2. ~~Certificate PDF font paths~~ — **resolved in Phase 4**
+   (`lib/certificates/fonts.ts` builds absolute URLs from
+   `NEXT_PUBLIC_APP_URL`).
+3. ~~`CertificateData` assembly gap~~ — **resolved in Phase 4**
+   (`durationLabel`/`dateRangeLabel` are joined from `TrainingProgram` at
+   issuance time, `lib/certificates/issue.tsx`).
+4. **Staff moderation/support surfaces still don't exist.**
+   `/staff/revocations`, `/staff/moderation`, `/staff/support` are still
+   unbuilt. Certificates and a real contact flow both exist now (Phases 4
+   and 6), so the *data* these pages would work with is there — moderation
+   (`trainees.is_hidden`/`flagged_reason`) is exactly what Phase 8's
+   self-claim flow starts to touch (§16), which may be the natural trigger
+   to finally build the moderation queue too, even though it's not
+   formally in Phase 8's own scope.
+5. **Upstash is still unconfigured** (§2) — both rate-limited endpoints run
+   on in-memory limiters. Fine for a single-instance dev/demo, not for
+   real multi-instance production traffic.
+6. **`directory_listings_view` fans out per certificate, not per trainee**
+   (`supabase/migrations/0018`) — the app groups rows into one card/profile
+   per trainee at the application layer (`app/directory/page.tsx`'s
+   `groupByTrainee`). Directory pagination is an in-memory slice over up to
+   600 fetched rows, not a true distinct-trainee SQL count — a deliberate
+   v1 shortcut, flagged in that file's own comments, worth revisiting if
+   the directory ever has real scale.
+7. **Bulk issuance processing speed depends on Cron actually running.**
+   Vercel's Hobby tier limits Cron to once a day; the job status page's own
+   opportunistic `advanceJob()` call (lib/bulk-issuance/processor.ts) is
+   the practical way a batch actually completes promptly today — see §14.
 
 ---
 
 ## 4. Security hygiene reminders
 
-Several real secrets passed through this chat session directly (the user
-pasted them): the Supabase DB password, service-role key, the first
-Admin's password, and a couple of test-account passwords (all test
-accounts were deleted after use). None of the real ones have been rotated
-as of this writing. Worth rotating the DB password and Admin password at
-some natural pause point, purely as hygiene — not urgent, but flagged
-repeatedly during the session and not yet acted on.
+Unchanged from before: several real secrets passed through chat directly
+early in the build (DB password, service-role key, first Admin's
+password). None rotated as of this writing. Still just hygiene, still not
+urgent, still worth doing at a natural pause.
 
 ---
 
 ## 5. Patterns established — follow these, don't reinvent
 
-- **Three-layer permission enforcement** (docs/roles-permissions.md §3):
-  Supabase RLS (DB), `lib/permissions.ts`'s `can(role, action)` (server
-  code), nav-item visibility (UX only). All three, every staff route.
-- **`audit_log` and `certificates` have no RLS write policy for anyone,
-  including Admin.** Every write to either goes through
-  `lib/supabase/admin.ts` (service role) from a server action, after a
-  `can()` check — never a direct RLS-gated client write. This is
-  deliberate (supabase/migrations/0007, 0008) — don't add a policy to
-  "simplify" a future phase without re-reading why.
-- **Column-level restriction is views, not RLS** (RLS is row-level only).
-  See `organizations_finance_view` / `organizations_public_view` /
-  `trainees_public_view` in migration 0009, and the file-header comment
-  there explaining why `security_invoker` must stay off.
-- **Certificate verification is a function, not a view**
-  (`verify_certificate` in 0009) — deliberately no selectable view onto
-  `certificates` for anon, so there's no "list all certificates" path.
-- **Shared react-pdf components**: `GoldSeal`, `VerificationQr`,
-  `Signature`, `IssuerLogo` — every template consumes these rather than
-  hand-rolling the same element 10 times. If a template needs a new
-  shared visual element, add it here, not inline per-template.
-- **Email is mocked outside production** (`lib/email/send.ts`) — don't
-  "fix" this to always send; it's intentional per CLAUDE.md's free-tier
-  discipline.
-- **Bootstrap-admin's guard logic lives in a separate pure file**
-  (`scripts/bootstrap-admin-guard.ts`) specifically so it's unit-tested
-  without a live Supabase project. Follow this split for any future
-  script with a similar "refuse unless X" gate.
+- **Three-layer permission enforcement**, **`audit_log`/`certificates` have
+  no RLS write policy for anyone**, **column-level restriction is views**,
+  **certificate verification is a function, not a view**, **shared
+  react-pdf components**, **email mocked outside production**,
+  **bootstrap-admin's guard logic in a separate pure file** — all unchanged
+  from before, still the rules.
+- **`jobs` follows the same "no direct write path" pattern as
+  `certificates`/`audit_log`**, one step further: the owner can `INSERT`
+  and `SELECT` their own jobs, but there's no `UPDATE`/`DELETE` policy for
+  anyone — every progress/status mutation goes through
+  `lib/bulk-issuance/processor.ts`'s `advanceJob()` via the service-role
+  client. When two different triggers can call the same privileged
+  function (Cron *and* a page view, here), guard it with a short-lease lock
+  (`jobs.processing_lock_expires_at`) rather than assuming only one caller
+  ever runs at a time.
+- **Certificate issuance logic lives in one place**:
+  `lib/certificates/issue.tsx`'s `issueCertificate()` (sign → QR → render →
+  upload → insert) is called by both the single-entry action
+  (`app/dashboard/programs/[id]/issue/actions.ts`) and the bulk processor
+  (`lib/bulk-issuance/processor.ts`). Don't let a third call site
+  reimplement this — extend the shared function's params instead.
+- **Contact relay stores nothing** (`lib/contact/actions.ts`) — no
+  messages table, just an in-memory rate limiter and an outbound email with
+  the sender's own contact info as `replyTo`. Don't add persistence to this
+  without a reason; it was a deliberate choice to minimize stored PII.
+- **Pan-African location fields**: `lib/geo/africa.ts` (the country/region
+  dataset) + `components/LocationFields.tsx` (the shared form fields) are
+  the only place this logic should live — don't hand-roll a second country
+  dropdown or duplicate the region-label-by-country lookup elsewhere.
+- **`components/PasswordField.tsx`** is now the only password `<input>`
+  pattern in the app (show/hide toggle, `tabIndex={-1}` on the toggle
+  button so it doesn't break tab order) — use it for any future password
+  field rather than a raw `<input type="password">`.
+- **CSV parsing has no external dependency** (`lib/csv.ts`) — a small
+  hand-rolled RFC4180-ish parser/writer, shared between the browser-side
+  instant preview and the server-side re-validation
+  (`lib/bulk-issuance/validate.ts`). Don't pull in a CSV library for
+  anything this format-simple without a real reason to.
+- **`CREATE OR REPLACE VIEW`/`FUNCTION` can only append columns** — see §2's
+  callout. Check this before writing a migration that changes an existing
+  view/function's output shape.
 
 ---
 
 ## 6. Environment quirks worth knowing before you hit them
 
-- **Turbopack dev-server cache corruption**: `npm run dev` occasionally
-  panics on `app/globals.css` with a native process crash
-  (`0xc0000142`). Fix is always the same: stop the server, `rm -rf .next`,
-  restart. Happened three separate times this session, same fix each time.
-- **Stray dev-server processes**: this machine runs multiple Next.js
-  projects. Before assuming port 3000 is free or killing a process,
-  check `Get-CimInstance Win32_Process -Filter "name='node.exe'"` and
-  confirm the command line actually points at `certified-app` — don't
-  kill node processes belonging to other projects.
-- **Browser-automation coordinate clicks were unreliable this session**
-  (viewport size seemed to fluctuate between screenshots, causing
-  pixel-coordinate clicks to miss). `find` + ref-based clicks worked
-  inconsistently too. What reliably worked: locating the element, then
-  clicking via `javascript_tool` (`element.click()` in-page). Prefer that
-  for anything that matters (form submits, template switches) rather than
-  trusting a screenshot-derived coordinate.
-- **Bash heredoc/`-m` commit messages with backticks get mangled** — a
-  backtick-quoted code snippet inside a `git commit -m "..."` string gets
-  interpreted as command substitution by the shell (see commit `378c063`,
-  which lost one inline code reference this way). Use `git commit -F
-  <file>` for any multi-line message containing backticks.
-- **Next.js 16 renamed Middleware to Proxy** (`middleware.ts` →
-  `proxy.ts`, function name `middleware` → `proxy`) — already migrated
-  (`proxy.ts` at the repo root), just noting it in case a future
-  dependency bump reintroduces the old convention somewhere.
-- **Google's font repo only ships variable fonts now** for Playfair
-  Display/Inter — registering those directly with react-pdf silently
-  drops weight variation (see §3 item 2's neighbor, fixed in Phase 3).
-  If any future font gets added, instantiate static weights with
-  `fonttools varLib.instancer --update-name-table` first — don't assume a
-  downloaded variable font "just works" with react-pdf without checking
-  the rendered PDF's `/BaseFont` names.
+- **Turbopack dev-server degradation over a long session is real and
+  looks exactly like an application bug.** After several hours and dozens
+  of file edits/hot-reloads in one `npm run dev` session, every request's
+  middleware overhead crept up to 5–20+ seconds — an `/apply` form
+  submission that should take a couple of seconds appeared to "hang
+  indefinitely" as a result (see §15). Confirmed it wasn't application
+  logic by checking the database directly (zero rows had been created) and
+  by timing routes before/after a restart (20s+ → under 1s). **Fix is
+  always the same as noted before**: stop the server (check
+  `Get-CimInstance Win32_Process -Filter "name='node.exe'"` for stray
+  `certified-app` processes specifically, don't assume the tracked
+  background task is the only instance — one survived being "killed" by
+  the harness and had to be found and stopped manually this session),
+  `rm -rf .next`, restart. **Do this proactively** after a long stretch of
+  edits, not just reactively once something seems broken.
+- **Supabase round-trip latency in this environment is genuinely high even
+  when healthy** — a plain `select count(*)` measured 4–7 seconds via a
+  direct Node script (no Next.js/middleware involved at all). Any action
+  chaining several sequential Supabase calls (file uploads, multi-attempt
+  inserts) should parallelize the independent ones (`Promise.all`) rather
+  than assume round trips are cheap — see the `/apply` action's fix in §15.
+- **Turbopack dev-server cache corruption** (`0xc0000142` panics on
+  `app/globals.css`), **stray dev-server processes from other projects**,
+  **browser-automation coordinate clicks being unreliable** (prefer
+  `javascript_tool`'s `element.click()`), **backtick-mangled `-m` commit
+  messages** (use `git commit -F <file>`), **Next.js 16's Middleware →
+  Proxy rename**, **Google's font repo only shipping variable fonts** — all
+  still true, unchanged from before.
+- **The Claude-in-Chrome browser extension was not connected this
+  session** — worth checking `tabs_context_mcp` early if a task might need
+  it, rather than assuming it's available and discovering otherwise
+  mid-task.
 
 ---
 
-## 7. Next up
+## 7. Production deployment (first deploy, Phase 4 era)
 
-**Phase 4 — Certificate issuance & verification** (`docs/build-phases.md`).
-Read that phase's prompt in full before starting; check §3 items 2 and 3
-above first, since both bear directly on how issuance should be built.
-Branch `phase-4-certificate-issuance` already exists locally, cut from
-`main` at `36ad412`, zero commits on it yet — reuse it rather than creating
-a second one. Scope already reviewed and approved by the user
-("scope what is naturally next for my review and go ahead"):
+Unchanged from before — see the full incident write-up that used to live
+here, now folded into this doc's history: Vercel env vars were registered
+but empty, fixed via the API, confirmed `/`, `/login`, `/staff/login` all
+200 on `https://certified-app-lime.vercel.app`. **Not redeployed since** —
+everything from Phase 5 onward (§1) exists only on `main` + hosted
+Supabase, not on production. `CRON_SECRET` in particular needs to be set
+before the next deploy (§2).
 
-1. **Program creation** — turn `/dashboard/programs`, `/dashboard/programs/
-   new`, `/dashboard/programs/[id]` from "coming soon" placeholders into
-   real CRUD against `training_programs`.
-2. **Add-trainee flow** — name, optional photo (needs a new public Storage
-   bucket, uid-prefixed RLS matching `org-brand-assets`' pattern, re-encoded
-   via sharp same as every other upload), phone/email, bio, completion
-   date, grade/distinction, and a **required consent checkbox** using the
-   exact wording from `docs/blueprint.md` §6: *"I confirm this trainee has
-   consented to a public profile."*
-3. **Certificate generation** — random non-sequential `public_id`;
-   HMAC-SHA256 signature computed server-side in a new `lib/certificates/
-   sign.ts` (this exact path is already named in `CLAUDE.md`'s folder
-   structure section, not yet created); PDF rendered via the issuer's
-   chosen template + brand config; uploaded to a new public `certificates`
-   Storage bucket; URL stored on the `certificates` row. Writes go through
-   `lib/supabase/admin.ts` (service role) — `certificates` has no
-   direct-write RLS policy for anyone, by design (§5).
-4. **Public verification page** `/verify/[public_id]` — SSR, unauthenticated,
-   recomputes the signature server-side and compares against the stored
-   value, renders Valid/Revoked/Expired with the animated reveal in
-   `docs/design-system.md` §2. Must satisfy CLAUDE.md rule #6: rate-limited
-   per IP, and must never expose a "list all certificates" capability.
-5. **Revocation** — `/dashboard/certificates/[id]`'s placeholder becomes
-   real: reason required, audit-logged, flips certificate status,
-   permanently disclosed on the verification page thereafter.
-6. **New Storage migration needed**: `certificates` bucket (public) +
-   `trainee-photos` bucket (public, uid-prefixed owner-write RLS) + their
-   RLS policies — same pasted-into-SQL-Editor rhythm as every prior
-   migration.
-7. **Font path fix** (§3 item 2) — switch `lib/certificates/fonts.ts` to
-   build absolute URLs from `NEXT_PUBLIC_APP_URL` so react-pdf's
-   server-side renderer can actually fetch them; this was blocking Phase 4
-   specifically and should be fixed as part of it, not deferred again.
-8. **`CertificateData` assembly** (§3 item 3) — confirm `durationLabel`/
-   `dateRangeLabel` come from `TrainingProgram` via join at issuance time
-   (no such column exists directly on `Certificate`) before wiring the
-   issuance action.
-9. **Rate limiting** — Upstash REST credentials are still not configured
-   (§2/§3 item 5). Build an in-memory limiter for `/verify` for now, same
-   mock-until-configured pattern as `lib/email/send.ts`, structured so real
-   Upstash can drop in later without a rewrite.
+## 8. MFA incident — don't repeat this
 
-Same rhythm as every previous phase: write migration → send to the user
-via SendUserFile → they paste it into the SQL Editor → build/verify locally
-→ commit → push → PR → **wait for explicit "merge" before merging.**
+Unchanged from before: a test TOTP factor was enrolled on the real
+bootstrap Admin account during Phase 0/2/2.5 testing rather than a
+disposable staff account, stranding the real user's first login. Lesson
+holds: never touch MFA on a real/production account during testing, use a
+disposable staff account instead.
+
+## 9. Account deletion & recovery
+
+Unchanged from before: the original bootstrap Admin account was
+accidentally deleted via the Supabase Dashboard, recovered via
+`scripts/bootstrap-admin.ts` with a fresh `ADMIN_BOOTSTRAP_SECRET` (id
+`faa4335d-9ef8-4a36-957b-8714478e7e23`), `organizations`/`applications`
+confirmed empty throughout so nothing real was lost.
 
 ---
 
-## 8. Production deployment (first deploy, done outside the normal phase flow)
+## 10. Phase 4 merge + pan-African rebrand ("Certified Africa")
 
-The user deployed to Vercel themselves (per `CLAUDE.md`'s free-tier
-discipline, this was never triggered as a side effect of finishing a
-phase). First deploy came up with every request 500ing.
-
-**Root cause**: the Vercel project (`certified-app`, team `sun-media2`,
-project id `prj_ZKlYqNYCsR4fXio6qk80hIdBdieu`) had all 12 env vars
-registered by name but every single value was empty — so every Supabase
-client construction failed at runtime. Fixed via the Vercel API (user
-provided a token) — set real values for `NEXT_PUBLIC_APP_URL` (the
-project's stable alias, `https://certified-app-lime.vercel.app`),
-`NEXT_PUBLIC_APP_ENV=production`, the three Supabase vars (same hosted
-project as local dev — has to match), `RESEND_API_KEY`/`RESEND_FROM_EMAIL`
-(same Resend account as local dev). Generated **fresh, production-only**
-secrets for `CERTIFICATE_SIGNING_SECRET` and `ALTCHA_HMAC_SECRET` rather
-than reusing the local dev ones — deliberate separation, not an oversight
-if the values differ from `.env.local`. Left `UPSTASH_REDIS_REST_URL`/
-`TOKEN` empty (still no real credentials, see §2/§3) and
-`ADMIN_BOOTSTRAP_SECRET` empty (intentionally retired, see §2). Then
-triggered a fresh production deployment via the API (env var changes
-don't apply to an already-built deployment — `NEXT_PUBLIC_*` vars
-specifically are baked in at build time) and confirmed `/`, `/login`,
-`/staff/login` all return 200 on the live URL.
-
-**If a future deploy breaks again**: check the Vercel project's env vars
-first, via the dashboard or `GET /v9/projects/{id}` with a token — an
-empty-but-present var looks identical to "not configured" at a glance and
-is easy to miss.
-
-## 9. MFA incident — don't repeat this
-
-While verifying the Phase 0/2/2.5 staff flows earlier in the build, I
-enrolled and verified a real TOTP factor on the actual bootstrap Admin
-account (Hanson Uko) to test the enrollment UI end-to-end, computing
-valid codes myself from the secret rather than using a physical
-authenticator app. That verified factor stayed on the account afterward.
-When the real user tried to log in for the first time, the flow correctly
-detected an existing verified factor and asked for a code — which they
-had no way to produce, since they never actually scanned that QR into
-their own device.
-
-This isn't a bug in `requireStaffSession()`/the login flow — it worked
-exactly as designed. It's a side effect of testing against a real
-production account instead of a disposable one. **Lesson for future
-sessions**: for any MFA-touching test, use a disposable test staff
-account (as was already done for the Account Manager/Finance role tests
-in Phase 2/2.5) — never the real bootstrap Admin — or if a real account's
-flow genuinely needs testing, warn the user immediately afterward that a
-test factor was left on it and needs clearing before their first real
-login.
-
-Fix: user clears the stale factor via Supabase Dashboard → Authentication
-→ Users → their account → MFA factors, then enrolls fresh with their own
-authenticator app. (I attempted to clear it programmatically via
-`supabase.auth.admin.mfa.deleteFactor` — blocked by this environment's
-safety classifier, since deleting an auth factor autonomously is a
-sensitive action. That block was correct; doing it by hand in the
-Dashboard is the right path here.)
+Phase 4 (PR #9) merged after fixing a migration deadlock (split
+`0012`→`0012`–`0015`) and a `CREATE OR REPLACE FUNCTION` shape error
+(`DROP FUNCTION` first). Immediately after, the project's scope changed:
+renamed to **Certified Africa**, geography expanded from Nigeria-only to
+pan-African, landing on Country (structured, all 54 states) + Region
+(structured for Nigeria/Ghana/Kenya/South Africa, free text elsewhere) +
+Locality (free text everywhere) — `lib/geo/africa.ts`. The gold seal's own
+wordmark deliberately stayed "CERTIFIED" rather than "CERTIFIED AFRICA" —
+the trust mark and the company name are allowed to differ, and changing it
+would've meant reworking fixed-position artwork across all 10 templates
+for no functional gain. Migrations `0016`–`0017` (organizations/trainees
+address columns renamed + `country` added). Repo name, Vercel project, and
+production URL deliberately left untouched — that's still true, still a
+separate future decision if wanted.
 
 ---
 
-## 10. Account deletion & recovery
+## 11. Phase 5 — public directory & search
 
-Shortly after the §9 fix, the user reported the super admin account itself
-appeared to be gone — most likely they went into the Supabase Dashboard
-intending to clear just the stale MFA factor (per §9's fix) and deleted the
-auth user instead. `admin_users.user_id` references `auth.users(id) on
-delete cascade`, so the `admin_users` row went with it.
+Three PRs, one per page, each merged before the next started (per the
+user's explicit "commit, push, open PR, wait for my call" rhythm this
+session):
 
-**Verified live before touching anything**: queried both `auth.users` and
-`admin_users` with the service-role client — the original account
-(`e48e2f37-9879-4178-8d7e-cc4bfce563e0`, certifiedafrica1@gmail.com) was
-gone from both, and `admin_users` count was genuinely `0`. That matters
-because `scripts/bootstrap-admin-guard.ts` refuses unconditionally once
-that count is `> 0` — a real `0` count meant the bootstrap script could
-safely run again without weakening its guard.
+- **PR #11**: `/directory` — search/filter by name/field/program (plain
+  `ILIKE`, sanitized against `.or()`'s own filter-string syntax
+  characters), structured Country filter, structured Region filter for the
+  four priority countries, issuer, completion-date range, open-to-hire.
+  Migration `0018` added `directory_listings_view` — the platform's first
+  anon-facing *listing* surface over certificates, deliberately scoped
+  (active certs, approved orgs, non-hidden trainees, never phone/email) and
+  explicitly documented as *not* conflicting with `verify_certificate()`'s
+  "no enumeration" rule (that rule is about the single-lookup verification
+  endpoint, not the directory, which is designed to be a public listing).
+- **PR #12**: `/directory/trainee/[id]` — trainee public profile. **Shipped
+  at the wrong path** in this same PR (`/directory/[id]` instead of the
+  documented `/directory/trainee/[id]`) — caught and fixed in PR #13,
+  flagged directly rather than left quiet.
+- **PR #13**: `/directory/org/[slug]` — issuer public page. Found two more
+  gaps while building it: organizations had no `slug` (needed for the
+  documented route) or public `bio`/`training_fields` (blueprint says the
+  application's `training_description`/`training_fields` "becomes the
+  public training profile," but nothing ever copied them over). Both fixed
+  via migration `0019` — `slug` generated at application time
+  (`lib/slug.ts`, collision-retried like certificate `public_id`),
+  `bio`/`training_fields` populated by the staff approve action.
 
-**Recovery**: regenerated `ADMIN_BOOTSTRAP_SECRET` in `.env.local`, ran
-`npm run bootstrap:admin` with the same name/email and a new password the
-user provided directly, which created a fresh admin_users row with id
-`faa4335d-9ef8-4a36-957b-8714478e7e23`. Immediately blanked
-`ADMIN_BOOTSTRAP_SECRET` again afterward (see §2) — same one-time-use
-pattern as the original bootstrap. Confirmed live: `admin_users` row has
-`role = admin`, `status = active`, zero MFA factors (this time genuinely
-untouched by any of my testing — see §9's lesson, followed here), and a
-correct `bootstrap_admin_created` row in `audit_log`.
+## 12. Phase 6 — contact/hire flow
 
-**Also checked, per the user's direct question** ("can't see any pending
-application submitted earlier, possible to have that if it still exists on
-database?"): queried `organizations` and `applications` directly — both
-tables were **completely empty**, zero rows. Nothing was lost in the
-account deletion itself; every prior record across every phase's testing
-was disposable test data that I created and cleaned up as part of
-verifying that phase, not a real applicant's submission. No real
-application has ever existed in this database as of this writing.
+Two PRs, trainee then issuer, sharing one generic implementation built in
+the first:
 
-**For next session**: the user still needs to do their own fresh MFA
-enrollment on the recreated account (§9's lesson applies here too — don't
-enroll it for them). No other cleanup needed; the recreated account is
-otherwise a clean, correct Admin row.
+- **PR #14**: `lib/contact/actions.ts` + `components/ContactForm.tsx` — the
+  reveal-or-relay flow (Altcha → rate limit → server-side lookup of the
+  real contact email via service-role client → Resend email with the
+  sender's own contact info as `replyTo`). Wired into the trainee profile
+  first. Judgment calls made per the user's "use your best judgement": no
+  message-content persistence (pure relay, not an inbox); `trainees.
+  contact_visibility = 'hidden'` suppresses the form entirely, `'public'`
+  and `'gated'` behave identically (raw exposure isn't allowed either way
+  under the "no public opt-out" decision, so that enum effectively only has
+  two meaningful states today). Migration `0020` added
+  `contact_visibility` to `directory_listings_view`.
+- **PR #15**: same mechanism wired into the issuer public page — always
+  shown (no visibility toggle exists for organizations), no schema change.
+
+## 13. Phase 7 — bulk/CSV cohort issuance
+
+Two PRs, upload/validate/enqueue then the processor:
+
+- **PR #16**: `lib/csv.ts` (dependency-free parser/writer) +
+  `lib/bulk-issuance/validate.ts` (shared client+server validation —
+  required fields, date format, in-batch duplicate detection by name +
+  completion date) + migration `0021`'s `jobs` table (owner can insert +
+  read own jobs only; every other mutation is service-role-only, matching
+  the `certificates`/`audit_log` pattern) + the upload/preview UI at
+  `/dashboard/programs/[id]/bulk-issue`. Consent is one batch-level
+  checkbox, not per-trainee — a deliberate, flagged weakening of the
+  single-entry flow's per-person attestation.
+- **PR #17**: `lib/certificates/issue.tsx` (issuance logic extracted out of
+  the single-entry action so both paths share it) + `lib/bulk-issuance/
+  processor.ts`'s `advanceJob()` (processes up to 3 rows per call) +
+  `app/api/cron/process-bulk-issuance` (the real Vercel Cron target,
+  `vercel.json`, `CRON_SECRET`-protected) + migration `0022`'s short-lease
+  lock. **Free-tier reality check, flagged directly**: Vercel's Hobby tier
+  limits Cron to once a day, which alone would leave a queued batch
+  stalled for a long time — so the job status page also calls
+  `advanceJob()` on every load/auto-refresh (same lock, so it can't race
+  Cron into double-issuing), making "keep the status page open" the
+  practical way a batch actually finishes promptly. Not yet exercised
+  against real Vercel Cron (never deployed since, §2).
+
+## 14. `/apply` hang + password UX + staff password reset (PR #18)
+
+Reported symptom: submitting the application form "loads endlessly
+without returning success or failure." Root cause was the dev-server
+degradation described in §6, not application logic — confirmed by
+querying `organizations`/`applications` directly (zero rows, so the
+attempt genuinely never completed) and by timing routes before/after a
+clean restart (20s+ → under 1s). Restarting fixed the symptom. Hardened
+the action anyway since Supabase latency in this environment is high even
+when "healthy" (§6): the two file uploads now run in parallel
+(`Promise.all`), and the organization-insert-through-application-insert
+sequence is wrapped in one try/catch so a genuine network-level throw
+(which `supabase-js` does raise for connection failures, unlike its normal
+`{ data, error }` return) surfaces as the same clean error state every
+other failure path already returns, rather than an unhandled rejection.
+`redirect()` deliberately stays outside that try — it throws its own
+signal that must reach Next.js's handling, not get caught here.
+
+Also in this PR, unrelated to the hang: `components/PasswordField.tsx`
+(show/hide toggle) wired into `/login`, `/signup`, `/staff/login`; a
+"Forgot password?" flow added to staff login only
+(`/staff/login/forgot-password` → `/staff/login/reset-password`, standard
+Supabase `resetPasswordForEmail`/`updateUser`, doesn't touch MFA). The
+issuer/applicant side (`/login`) doesn't have the same forgot/reset flow
+yet — `docs/sitemap.md` already documents generic `/forgot-password`/
+`/reset-password` routes for it if that's wanted later.
 
 ---
 
-## 11. Phase 4 merge + pan-African rebrand ("Certified Africa")
+## 15. Where things stand right now
 
-**Phase 4** (PR #9) merged after two live-migration issues, both fixed and
-re-sent before the user re-ran them successfully:
+Dev server was left running at `http://localhost:3000` (freshly restarted,
+not the degraded one from §6/§14) for the user's own testing. No open PRs.
+Nothing has been deployed to production since the Phase 4 era (§7) — Phases
+5–7 and PR #18 exist only on `main` + the hosted Supabase project.
 
-1. The original single `0012_certificate_issuance.sql` deadlocked
-   (Postgres `40P01`) — one transaction held locks across `storage.objects`
-   and public-schema tables at once, racing Supabase's own background
-   Storage/PostgREST processes. Fix: split into four smaller, per-table
-   migrations (`0012`–`0015`). **Lesson for any future migration touching
-   both `storage.objects` and public-schema tables**: keep them in separate
-   files/transactions from the start, don't wait for the deadlock to teach
-   this again.
-2. `0015`'s `verify_certificate()` replace hit `42P13` ("cannot change
-   return type of existing function") — `CREATE OR REPLACE FUNCTION` can't
-   change the OUT-parameter shape even when only adding columns. Fix:
-   `DROP FUNCTION IF EXISTS` before recreating, re-grant `EXECUTE` after
-   (a drop wipes existing grants).
+---
 
-All of `0012`–`0015` are confirmed live on the hosted project.
+## 16. Next up: Phase 8 — Trainee self-claim
 
-**Immediately after merging**, the user redirected the whole project's
-scope: renamed to **Certified Africa**, geographic scope expanded from
-Nigeria-only to pan-African. Before touching anything, four decisions were
-confirmed explicitly (not assumed) via AskUserQuestion, since each was
-expensive to get wrong:
+Per `docs/build-phases.md`: *"On trainee creation, send a claim-link email
+(Resend) with a signed, expiring token. Build the claim flow: trainee
+verifies via the link, can then edit their bio, photo, contact
+preferences, and open-to-hire status, or request the profile be
+hidden/removed (soft-delete, not a hard delete of the underlying
+certificate record). This is the NDPA compliance hook."*
 
-1. **Gold seal wordmark stays "CERTIFIED"** — not changed to "CERTIFIED
-   AFRICA". Avoids reworking fixed-position artwork already built across
-   `lib/certificates/GoldSeal.tsx`, `components/GoldSeal.tsx`, and all 10
-   templates. The company name and the trust-mark word are allowed to
-   differ (see `docs/blueprint.md` §11 item 8).
-2. **Location model: fully structured Country → Region, free-text
-   Locality** — not a flat free-text "state/lga" pair anymore, but also not
-   a fully exhaustive structured dataset for all 54 countries (unrealistic
-   to source/maintain accurately). Landed as: Country (structured, all 54
-   AU/UN-recognized states), Region (structured dropdown for Nigeria/Ghana/
-   Kenya/South Africa specifically, free text elsewhere), Locality (free
-   text everywhere, including the priority four) — `lib/geo/africa.ts`,
-   `components/LocationFields.tsx`. See `docs/blueprint.md` §7 for the full
-   reasoning, including why locality-level structured data (LGA-equivalent)
-   was ruled out even for priority countries — that's thousands of entries
-   per country, a much bigger sourcing effort than this pass takes on.
-3. **Legal/declaration language genericized now** — `docs/declaration-
-   form.md` and `ApplyForm.tsx`'s hand-synced copy no longer assume
-   Nigerian law/NDPA specifically; both now say "applicable law in my
-   country of operation" with Nigeria kept only as a parenthetical example.
-   `declaration_version` bumped `v1-2026-09` → `v2-2026-09` accordingly
-   (`app/(auth)/apply/actions.ts`) — this is drafted language, not legal
-   advice; still flagged for a real lawyer's review per the doc's own
-   header note.
-4. **Repo/Vercel/production URL left untouched** — only in-app copy, code,
-   and docs were renamed. `hansonuko/certified-app` (GitHub), the Vercel
-   project, and `certified-app-lime.vercel.app` all still carry the old
-   name; renaming those is its own separate, explicit, outward-facing
-   decision the user can trigger later.
+**What already exists and needs no new work**: `trainees.claim_token` /
+`claimed` / `claimed_by_user_id` have existed since migration `0006` but
+have never been populated or read by any code yet. Once
+`claimed_by_user_id = auth.uid()`, the existing `trainees_self_all` RLS
+policy already lets that trainee edit their own `bio`, `photo_url`,
+`contact_visibility`, and `open_to_hire` directly — **no schema or RLS
+change needed for that part.** Certificate verification
+(`verify_certificate()`) already reads only from `certificates`, never
+`trainees.is_hidden` — so hiding a directory listing already can't affect
+verifiability today, satisfying that requirement with zero new code.
 
-**What changed, concretely:**
+**What's genuinely open — worth a decision before building, not
+assuming:**
 
-- Schema: `supabase/migrations/0016`–`0017` (not yet applied to the hosted
-  project as of this writing — sending them next, same rhythm as every
-  prior migration). Renames `organizations.address_state`/`address_lga` →
-  `address_region`/`address_locality`, adds `address_country`; same
-  rename+add pattern on `trainees` (`state`/`lga` → `region`/`locality`,
-  adds `country`). Both `organizations_public_view` and
-  `trainees_public_view` (0009) updated via `CREATE OR REPLACE VIEW` to
-  match. Applied as two separate files (not one) per lesson #1 above, even
-  though the deadlock risk here is much lower than the storage.objects
-  case — no reason not to keep applying the lesson.
-- `lib/geo/africa.ts` — the country/region dataset described above.
-- `components/LocationFields.tsx` — shared Country/Region/Locality form
-  fields, used by both `/apply` (org address) and the issuance flow
-  (trainee location); region renders as a dropdown or free-text input
-  depending on whether the selected country has structured data.
-- Every user-facing "Certified" string (page titles/metadata, dashboard/
-  staff shell headers, email subject lines and bodies, README, CLAUDE.md's
-  own project description) renamed to "Certified Africa" — except anywhere
-  quoting the seal's actual wordmark or naming the seal itself (e.g.
-  `docs/blueprint.md` §5.1's "Certified Gold Seal" heading, the seal's own
-  `aria-label`), which intentionally still say just "Certified" to match
-  what's actually drawn.
-- `docs/blueprint.md` §3.1, §4, §6, §7, and §11 updated for the new
-  location model and genericized legal-hook language; `docs/build-phases.md`
-  Phase 5's own prompt rewritten in place (Phase 5 hadn't started, so this
-  is the actual working brief now, not just a historical note);
-  `docs/sitemap.md`'s `/directory` row updated similarly.
+1. **Claim token expiry.** `claim_token` is a bare `text` column today,
+   no expiry tracking. Recommend adding `trainees.claim_token_expires_at
+   timestamptz` (a small new migration) and generating an opaque random
+   token (same pattern as `lib/certificates/public-id.ts`) rather than a
+   signed JWT — simpler, and consistent with how this schema already
+   models the token as a plain lookup key, not a self-verifying credential.
+2. **Auth linking UX.** A trainee clicking their claim link may not have a
+   Certified Africa account at all. Needs a decision: does `/claim/[token]`
+   prompt them to sign up/log in first (reusing `/signup`/`/login`, passing
+   the token through somehow — a query param surviving the redirect, or a
+   short-lived cookie) and then link the resulting `auth.users.id` to
+   `claimed_by_user_id`? Recommend this over inventing a separate
+   passwordless flow, to reuse the existing auth pages rather than build a
+   third one.
+3. **Self-hide conflicts with an existing trigger.** `trainees`'
+   `guard_trainee_moderation_columns` trigger (migration `0006`) blocks
+   *any* non-staff update to `is_hidden`/`flagged_reason`/`claimed`/
+   `claimed_by_user_id`/`claim_token` — including from the trainee who
+   owns the row via `trainees_self_all`. Blueprint's "request the profile
+   be hidden" needs the trainee to flip `is_hidden` themselves. Two ways to
+   resolve, pick one deliberately rather than punching a hole in the
+   trigger without thinking it through:
+   - **(recommended)** A dedicated server action using the service-role
+     client (`createAdminClient()`) that checks `claimed_by_user_id ===
+     session user id` before flipping `is_hidden` — matches this codebase's
+     established "privileged column changes go through one service-role
+     path with an explicit check" pattern (certificates, audit_log, jobs),
+     and keeps the trigger's blanket protection intact for everything else
+     (moderation flags, claim mechanics).
+   - Alternative: modify the trigger to carve out `is_hidden` specifically
+     as self-settable by the row's own `claimed_by_user_id`, still blocking
+     `flagged_reason`/`claimed`/`claimed_by_user_id`/`claim_token`. More
+     "in the database," but touches a trigger every other table's
+     moderation logic also relies on reading correctly — the service-role
+     action is the lower-risk option.
+4. **No `audit_log` actor_type for a trainee's own action.** `actor_type`
+   is currently `system`/`staff`/`issuer` (migration `0013`). A trainee
+   self-hiding their profile doesn't obviously need an audit trail the way
+   staff decisions or issuer revocations do (CLAUDE.md rule #7 is about
+   *admin* decisions specifically) — recommend not logging it at all rather
+   than adding a fourth actor_type for one low-stakes self-service action,
+   but flag this rather than assume it if the next session disagrees.
+5. **Claim email needs sending from two call sites.** Both the single-entry
+   issuance action (`app/dashboard/programs/[id]/issue/actions.ts`) and the
+   bulk processor (`lib/bulk-issuance/processor.ts`) create `trainees` rows
+   — the claim-link email needs to fire from both, only when the row has an
+   email address (many bulk rows won't). A new `lib/email/claim-
+   templates.ts` alongside the existing `application-templates.ts`/
+   `organization-templates.ts`/`contact-templates.ts` is the natural home.
 
-**Not yet done / for next session:**
-
-- Migrations 0016–0017 need to be pasted into the Supabase SQL Editor
-  before this is testable live (same pattern as every migration so far —
-  sent separately, wait for confirmation).
-- No real data exists yet to migrate (organizations/trainees were confirmed
-  empty in §10), so the column renames carry zero data-loss risk.
-- Phase 5 (the public directory) hasn't been built yet — when it is, it's
-  the first real consumer of `organizations_public_view`/
-  `trainees_public_view`'s new `country`/`region`/`locality` columns and of
-  `lib/geo/africa.ts` for the directory's own filter UI.
+**Suggested build order**: migration (claim token expiry) → claim-link
+email wired into both issuance paths → `/claim/[token]` (verify + auth
+link) → a claimed-trainee profile editor page (bio/photo/contact
+preferences/open-to-hire, all already RLS-permitted) → the self-hide
+server action. Same rhythm as every phase before it: branch off `main`,
+commit incrementally, migration sent separately for the SQL Editor, PR
+opened, **wait for explicit merge approval** — and given the size of the
+open questions above, probably worth splitting into 2–3 items (e.g.
+"claim + verify" then "profile editor + self-hide") with a review/merge
+checkpoint between them, matching how Phases 5–7 were run this session.
