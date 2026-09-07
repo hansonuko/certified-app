@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireStaffSession } from '@/lib/auth/staff';
 import { can } from '@/lib/permissions';
@@ -27,6 +28,9 @@ export default async function FinancePage() {
           (CLAUDE.md) — this page exists to catch an approaching limit before it becomes an unexpected paid-tier
           surprise.
         </p>
+        <Link href="/staff/finance/reports" className="text-sm text-certified-navy underline">
+          Export reports (CSV/PDF) →
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
