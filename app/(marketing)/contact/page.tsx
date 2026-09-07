@@ -13,7 +13,7 @@ export default function ContactPage() {
       <PageHeader
         eyebrow="Contact"
         title="Get in touch"
-        subtitle="For issuer support, press, or anything else — this isn't for contacting a specific trainee or organization listed in the directory (use the contact button on their own profile for that)."
+        subtitle="For issuer support, press, or anything else, this isn't for contacting a specific trainee or organization listed in the directory, use the contact button on their own profile for that."
       />
       <div className="max-w-xl">
         <PlatformContactForm />

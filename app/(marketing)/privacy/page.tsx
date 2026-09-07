@@ -4,7 +4,7 @@ import { LegalSection, LegalDraftNotice } from '@/components/marketing/Legal';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
-  description: 'How Certified Africa collects, uses, and protects personal data — including trainee data specifically.',
+  description: 'How Certified Africa collects, uses, and protects personal data, including trainee data specifically.',
 };
 
 const LAST_UPDATED = 'September 2026';
@@ -34,11 +34,11 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>From/about trainees:</strong> full name, an optional photo, bio, contact details (phone/email),
-              country/region/locality, and the certificate(s) issued to them — entered by the issuer at
+              country/region/locality, and the certificate(s) issued to them, entered by the issuer at
               certification time, with the issuer confirming the trainee's consent to a public profile.
             </li>
             <li>
-              <strong>From visitors:</strong> only what's needed to operate the site — e.g. an IP address used
+              <strong>From visitors:</strong> only what's needed to operate the site, e.g. an IP address used
               transiently for rate-limiting the verification and contact endpoints against abuse.
             </li>
           </ul>
@@ -51,18 +51,18 @@ export default function PrivacyPage() {
           </p>
           <ul className="list-disc pl-5">
             <li>
-              The trainee receives an emailed claim link that lets them sign in and take ownership of the profile —
+              The trainee receives an emailed claim link that lets them sign in and take ownership of the profile,
               editing their bio, photo, and contact preferences, or hiding the profile from the directory entirely.
             </li>
             <li>
               Phone and email are never shown directly on a public page to an unauthenticated visitor. Contact
               happens through a rate-limited relay: a visitor's message is forwarded to the trainee (or issuer) by
-              email, with the sender's own contact info included so they can reply directly — Certified Africa does
+              email, with the sender's own contact info included so they can reply directly, Certified Africa does
               not continue as a party to that conversation.
             </li>
             <li>
               Hiding a directory profile is a self-service, reversible action and does not delete the underlying
-              certificate record — verification of an already-issued certificate is independent of directory
+              certificate record, verification of an already-issued certificate is independent of directory
               visibility, since that record is what makes the certificate legally meaningful.
             </li>
           </ul>
@@ -78,7 +78,7 @@ export default function PrivacyPage() {
 
         <LegalSection title="5. How long we keep it">
           <p>
-            Certificate records are kept indefinitely once issued — a certificate needs to remain verifiable for as
+            Certificate records are kept indefinitely once issued, a certificate needs to remain verifiable for as
             long as someone might reasonably rely on it, including after a trainee hides their directory profile.
             Application documents and account data are kept for as long as the account is active, plus a reasonable
             period afterward for legal and audit purposes.

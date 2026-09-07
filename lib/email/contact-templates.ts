@@ -34,7 +34,7 @@ export function platformContactEmail({
   message: string;
 }) {
   return {
-    subject: `[Contact form] ${topic} — ${senderName}`,
+    subject: `[Contact form] ${topic}, ${senderName}`,
     html: `<p>New message from the Certified Africa contact form.</p>
 <p><strong>Topic:</strong> ${escapeHtml(topic)}</p>
 <p><strong>From:</strong> ${escapeHtml(senderName)} (${escapeHtml(senderEmail)})</p>
@@ -66,6 +66,6 @@ export function contactRelayEmail({
   <li>Email: ${escapeHtml(senderEmail)}</li>
   ${senderPhone ? `<li>Phone: ${escapeHtml(senderPhone)}</li>` : ''}
 </ul>
-<p>Just hit reply on this email to respond — it'll go straight to them.</p>`,
+<p>Just hit reply on this email to respond, it'll go straight to them.</p>`,
   };
 }

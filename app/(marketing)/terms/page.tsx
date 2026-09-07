@@ -27,19 +27,19 @@ export default function TermsPage() {
 
         <LegalSection title="2. Issuer accounts">
           <ul className="list-disc pl-5">
-            <li>You must be approved before you can issue any certificate — applying does not guarantee approval.</li>
+            <li>You must be approved before you can issue any certificate, applying does not guarantee approval.</li>
             <li>
               Information you submit (identification, proof of operation, address, contact details) must be
               accurate. Submitting false or misleading information is grounds for rejection, suspension, or
               revocation of already-issued certificates.
             </li>
             <li>
-              You're responsible for confirming a trainee's consent before creating their public profile — this is a
+              You're responsible for confirming a trainee's consent before creating their public profile, this is a
               requirement of using the issuance flow, not an optional step.
             </li>
             <li>
               Certificate content cannot be edited after issuance. If you made an error, revoke the certificate with
-              a reason and reissue a corrected one — the correction stays visible in the certificate's history.
+              a reason and reissue a corrected one, the correction stays visible in the certificate's history.
             </li>
             <li>
               We may suspend an issuer account or freeze issuance if we detect fraud, abuse, or unusual
@@ -56,10 +56,10 @@ export default function TermsPage() {
             </li>
             <li>
               You can claim your profile via the emailed claim link and then edit your own bio, photo, and contact
-              preferences, or hide your directory listing — at any time, reversibly.
+              preferences, or hide your directory listing, at any time, reversibly.
             </li>
             <li>
-              Hiding your directory listing does not delete or invalidate the underlying certificate — it remains
+              Hiding your directory listing does not delete or invalidate the underlying certificate, it remains
               independently verifiable, since that's what gives it evidentiary value.
             </li>
           </ul>
@@ -80,7 +80,7 @@ export default function TermsPage() {
           <p>
             Certified Africa confirms whether a certificate record matches what we issued and signed, and whether its
             status is active, revoked, or expired. We do not independently audit the quality or content of the
-            training an issuer provides — verification confirms the certificate is authentic and unaltered, not that
+            training an issuer provides, verification confirms the certificate is authentic and unaltered, not that
             you should trust the issuer's judgment for any particular purpose.
           </p>
         </LegalSection>
@@ -89,7 +89,7 @@ export default function TermsPage() {
           <p>
             We aim to keep the verification and directory services available, but don't guarantee uninterrupted
             uptime. We may update these terms, the platform's features, or (per our{' '}
-            <a href="/pricing">pricing page</a>) introduce paid tiers in the future — material changes will be
+            <a href="/pricing">pricing page</a>) introduce paid tiers in the future, material changes will be
             reflected here with an updated date, not applied retroactively to existing certificates.
           </p>
         </LegalSection>
