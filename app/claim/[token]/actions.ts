@@ -50,5 +50,8 @@ export async function claimProfile(token: string, _prev: ClaimState): Promise<Cl
   if (error) return { error: 'Could not claim this profile. Please try again.' };
   if (!trainee) return { error: 'This claim link is invalid, expired, or has already been used.' };
 
-  redirect(`/claim/${token}?done=1`);
+  // Straight to the profile editor (docs/build-phases.md Phase 8 item 2) —
+  // trainees_self_all's RLS already lets this account read/edit it, since
+  // claimed_by_user_id was just set above.
+  redirect(`/profile/${trainee.id}`);
 }

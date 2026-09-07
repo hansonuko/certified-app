@@ -71,7 +71,15 @@ Legend: 🌐 public/no-auth · 🔒 authenticated · role tags where relevant (*
 | `/dashboard/billing` | Billing (deferred) | "You're on the Free plan" placeholder; real billing UI ships with monetization |
 | `/dashboard/help` | Help/support | Contact Certified Africa, FAQ links |
 
-## 6. Staff console (🔒 internal only, path prefix `/staff`, role-gated per row)
+## 6. Trainee self-claim (🔒 claimed trainees, docs/build-phases.md Phase 8)
+
+| Path | Page | Notes |
+|---|---|---|
+| `/claim/[token]` | Claim a profile | Verifies the emailed claim token, prompts sign-in/sign-up (`?next=`) if needed, links the account to the trainee row |
+| `/profile` | Your claimed profiles | List of trainee rows this account has claimed (usually one; nothing stops claiming more across different orgs) |
+| `/profile/[id]` | Profile editor | Bio, photo, contact visibility, open-to-hire, and a self-hide toggle (soft-delete from the directory only — the underlying certificate stays independently verifiable) |
+
+## 7. Staff console (🔒 internal only, path prefix `/staff`, role-gated per row)
 
 | Path | Page | Admin | AM | FIN |
 |---|---|:---:|:---:|:---:|
@@ -95,7 +103,7 @@ Legend: 🌐 public/no-auth · 🔒 authenticated · role tags where relevant (*
 
 ---
 
-## 7. Cross-cutting UI shells
+## 8. Cross-cutting UI shells
 
 - **Public shell**: top nav (logo, How it works, Directory, Verify, Apply, Login), footer (legal, about, contact).
 - **Issuer dashboard shell**: left sidebar nav (collapsible), top bar with org switcher-free (single org per account in v1), notifications bell (leads, application status changes).
