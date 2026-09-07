@@ -23,8 +23,12 @@
   --certified-danger: #b91c1c;
   --certified-warning: #b45309;
 
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-display: 'Playfair Display', Georgia, serif;
+  /* --font-sans / --font-display are supplied by next/font on <html>
+     (app/layout.tsx) — not redeclared here so that always wins the cascade
+     outright rather than depending on stylesheet ordering. Tailwind's
+     fontFamily.sans/display (tailwind.config.ts) list literal fallbacks
+     after the var() regardless, so nothing regresses if next/font's
+     className is ever missing. */
 }
 
 body {
