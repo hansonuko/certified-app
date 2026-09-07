@@ -8,29 +8,97 @@
  * fixed colors (never wired to these) so an issuer's brand color can never
  * bleed into platform chrome, and platform theming can never touch a
  * certificate.
+ *
+ * Values are RGB channel triplets ("15 23 42", not "#0f172a") so
+ * tailwind.config.ts can wrap them as rgb(var(--x) / <alpha-value>) —
+ * that's what makes opacity-modified utilities (bg-certified-surface/60,
+ * bg-certified-success/10, ...) actually generate a rule; a bare hex/var()
+ * reference silently produces none. Because every styled surface in this
+ * app already draws from this one token set (design-system.md's own "don't
+ * invent colors ad hoc" rule, enforced since Phase 0), redefining them under
+ * `.dark` re-themes the entire app, not just the pages this session's
+ * dark-mode work directly touched.
  */
 :root {
-  --certified-ink: #0f172a;
-  --certified-navy: #0f2340;
-  --certified-navy-2: #1e3a5f;
-  --certified-gold: #c9992e;
-  --certified-gold-light: #e9c558;
-  --certified-surface: #ffffff;
-  --certified-surface-2: #f8f9fb;
-  --certified-border: #e2e5ea;
-  --certified-muted: #6b7280;
-  --certified-success: #15803d;
-  --certified-danger: #b91c1c;
-  --certified-warning: #b45309;
+  --certified-ink: 15 23 42;
+  --certified-navy: 15 35 64;
+  --certified-navy-2: 30 58 95;
+  --certified-gold: 201 153 46;
+  --certified-gold-light: 233 197 88;
+  --certified-surface: 255 255 255;
+  --certified-surface-2: 248 249 251;
+  --certified-border: 226 229 234;
+  --certified-muted: 107 114 128;
+  --certified-success: 21 128 61;
+  --certified-danger: 185 28 28;
+  --certified-warning: 180 83 9;
 
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-display: 'Playfair Display', Georgia, serif;
+  /* --font-sans / --font-display are supplied by next/font on <html>
+     (app/layout.tsx) — not redeclared here so that always wins the cascade
+     outright rather than depending on stylesheet ordering. Tailwind's
+     fontFamily.sans/display (tailwind.config.ts) list literal fallbacks
+     after the var() regardless, so nothing regresses if next/font's
+     className is ever missing. */
+}
+
+/*
+ * Dark mode — a deliberate "blue theme" (user-directed), not just an
+ * inverted grayscale. `--certified-navy` becomes a vivid, legible blue
+ * (headings/links/borders/active states all key off this one token) rather
+ * than staying near-black-on-near-black. Surfaces get real alpha so the
+ * glass/blur treatment on components/SiteHeaderClient.tsx,
+ * components/SiteFooter.tsx, and components/marketing/shared.tsx's Card/
+ * buttons has something translucent to actually blur. Toggled by
+ * components/ThemeToggle.tsx; see app/layout.tsx for the no-flash bootstrap
+ * script that applies this class before first paint.
+ */
+:root.dark {
+  --certified-ink: 233 241 255;
+  --certified-navy: 76 141 255;
+  --certified-navy-2: 47 111 224;
+  --certified-gold: 233 197 88;
+  --certified-gold-light: 243 222 155;
+  --certified-surface: 6 11 24;
+  --certified-surface-2: 30 58 95;
+  --certified-border: 255 255 255;
+  --certified-muted: 148 168 199;
+  --certified-success: 52 211 153;
+  --certified-danger: 248 113 113;
+  --certified-warning: 251 191 36;
+}
+
+/* --certified-border reuses pure white channels above specifically so the
+   handful of `border-certified-border/NN` opacity call sites (glass panels)
+   read as "a soft white hairline at NN% opacity" rather than a flat gray
+   line — the unmodified `border-certified-border` utility itself is given
+   its own low default alpha here rather than via the shared token, so every
+   existing bare usage (nearly all of them) still gets a subtle line instead
+   of a solid white one. */
+:root.dark .border-certified-border {
+  border-color: rgb(var(--certified-border) / 0.14);
 }
 
 body {
-  color: var(--certified-ink);
-  background: var(--certified-surface-2);
+  color: rgb(var(--certified-ink));
+  background: rgb(var(--certified-surface-2));
   font-family: var(--font-sans);
+}
+
+:root.dark body {
+  background: rgb(var(--certified-surface));
+}
+
+/* Smooth, deliberate theme switch (not an abrupt flash) — kept short and
+   scoped to color-ish properties only so layout/interaction transitions
+   elsewhere aren't affected. The reduced-motion block below already forces
+   this to 0.01ms for anyone who's asked for it. */
+body,
+header,
+footer {
+  transition:
+    background-color 200ms ease-out,
+    border-color 200ms ease-out,
+    color 200ms ease-out;
 }
 
 /* Motion system (docs/design-system.md §2): every transition respects reduced-motion. */

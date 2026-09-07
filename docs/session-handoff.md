@@ -5,13 +5,13 @@ verified, what's still open. Read this alongside `docs/build-phases.md`
 (the plan) before starting a new phase; this doc is the "what actually
 happened" complement to that plan.
 
-**Last updated:** 2026-09-06 — Phases 5, 6, and 7 all merged (PRs #11–#17),
-plus an out-of-band fix/UX PR (#18: an `/apply` hang, password-visibility
-toggles, staff password reset — see §15). **18 PRs merged, none open.**
-Migrations `0001`–`0022` all confirmed live on the hosted project (checked
-directly, not from memory — see §2). **Phase 8 (trainee self-claim) is
-next up** — see §16 for its scope and the real open design questions to
-settle before building it.
+**Last updated:** 2026-09-07 — Phase 8 (trainee self-claim, both items:
+claim+verify PR #20, profile editor+self-hide PR #21) merged, plus a
+docs-only handoff update (#19). **20 PRs merged, none open**, `main` builds
+clean (`tsc`, `npm test`, `npm run build`). Then, out-of-band (not a
+numbered `docs/build-phases.md` phase — flagged as such rather than
+retrofitted into the sequence): the public marketing site itself, which had
+never been built past a Phase-0 placeholder homepage, per §17 below.
 
 ---
 
@@ -471,3 +471,93 @@ opened, **wait for explicit merge approval** — and given the size of the
 open questions above, probably worth splitting into 2–3 items (e.g.
 "claim + verify" then "profile editor + self-hide") with a review/merge
 checkpoint between them, matching how Phases 5–7 were run this session.
+
+---
+
+## 17. Public marketing site (out-of-band, branch `marketing-site-public-pages`)
+
+Phase 8 (§16 above) was the last numbered item in `docs/build-phases.md`,
+but `docs/build-phases.md` never actually assigned a phase to
+`docs/sitemap.md` §1's eleven public marketing pages — `app/page.tsx` was
+still the literal Phase 0 placeholder ("Foundation phase — application code
+starts here") the whole time, and there was no shared header/footer nav
+anywhere in the app at all, on any page, marketing or otherwise. The user
+asked for the full marketing site to "come live" — this PR is that, plus
+the nav gap it exposed.
+
+**What shipped:**
+- All eleven pages from `docs/sitemap.md` §1: `/`, `/how-it-works`,
+  `/for-businesses`, `/for-individuals`, `/pricing`, `/security`, `/faq`,
+  `/about`, `/contact`, `/terms`, `/privacy` — new route group
+  `app/(marketing)/`, replacing the old `app/page.tsx` placeholder.
+- **The public shell** (`docs/sitemap.md` §8: "top nav — logo, How it works,
+  Directory, Verify, Apply, Login" + footer) — `components/PublicShell.tsx`,
+  `SiteHeader`/`SiteHeaderClient`/`SiteFooter`/`Logo`/`site-nav.ts`. Applied
+  not just to the new marketing pages but retrofitted onto the other public
+  surfaces via new `layout.tsx` files — `app/directory/layout.tsx`,
+  `app/verify/layout.tsx`, `app/(auth)/layout.tsx` (covers login/signup/
+  apply/apply-status; `callback/route.ts` is a route handler, unaffected) —
+  so nav is now consistent across every page `docs/sitemap.md` groups as
+  public. Header is auth-aware (`lib/auth/account-link.ts`): shows
+  Dashboard/My profile/Log out once signed in, resolved by checking for an
+  owned Organization vs a claimed Trainee row.
+- **Fixed a real, separate gap this surfaced**: nothing in the app had a
+  sign-out path before this (`lib/auth/actions.ts`'s `signOutAction` is
+  new) — `components/IssuerShell.tsx`/`StaffShell.tsx` still don't wire one,
+  worth a follow-up.
+- **Fixed a second real gap**: `--font-sans`/`--font-display`
+  (`app/globals.css`) were declared but never actually loaded in-browser —
+  no `next/font`, no `<link>`, nothing — so every page had silently been
+  rendering in system-ui/Georgia instead of Inter/Playfair Display since
+  Phase 0. `app/layout.tsx` now loads both via `next/font/google`.
+- **Homepage stats** (`docs/sitemap.md` §1: "once non-zero"):
+  `lib/stats/public-stats.ts` counts `organizations_public_view` and
+  `directory_listings_view` (aggregate `count: 'exact', head: true` — not a
+  listing, so this doesn't reopen CLAUDE.md rule #6) and the section only
+  renders once either is non-zero. Both are currently zero against local
+  dev data, so the section doesn't render in normal testing — that's
+  expected, not a bug.
+- **`/contact`'s backend** (`lib/contact/actions.ts`'s new
+  `submitPlatformContactRequest`, `lib/email/contact-templates.ts`'s new
+  `platformContactEmail`): a judgment call, flagged rather than silently
+  scoped down — `docs/sitemap.md` §1 says this form "routes to Account
+  Manager queue," but no such queue/table exists (`/staff/support` is still
+  an unbuilt future page per §7 of that doc). Built to send straight to a
+  new `SUPPORT_INBOX_EMAIL` env var (`.env.example`) via the existing
+  mocked-outside-production `lib/email/send.ts`, replyTo the sender — same
+  relay shape as the existing trainee/org contact form
+  (`components/ContactForm.tsx`), just a fixed platform recipient instead
+  of a per-target one. Swappable for a real `/staff/support` queue later
+  without changing the public form.
+- Page-transition motion (`docs/design-system.md` §2: "fade + 8px slide-up,
+  250ms ease-out") via `app/(marketing)/template.tsx` +
+  `components/marketing/PageTransition.tsx`, reduced-motion respected via
+  Framer Motion's `useReducedMotion()` (the CSS-level `prefers-reduced-motion`
+  override in `globals.css` doesn't reach Framer's JS-driven animations,
+  so this needed its own check). Same pattern in the new
+  `components/marketing/FaqAccordion.tsx`.
+
+**Verified:** `npx tsc --noEmit`, `npm test` (20/20), `npm run build` all
+clean; walked every new page plus the retrofitted directory/verify/login/
+terms/contact pages in a real browser — header, footer, fonts, active-nav
+underline, and the FAQ accordion all render correctly. One cosmetic-only
+dev console warning showed up (a hydration mismatch traced to a
+`__text_mode_READY__` class landing on `<body>` before React hydrated) —
+that's a browser-extension artifact per React's own hydration-mismatch
+message, not something in this PR's code; didn't chase it further.
+
+**Not done / flagged, not silently skipped:**
+- `components/IssuerShell.tsx`/`StaffShell.tsx` still have no sign-out UI,
+  despite `lib/auth/actions.ts` now existing — out of scope for a
+  marketing-site pass, worth its own small follow-up.
+- `/staff/support` (the real destination `/contact` should eventually reach)
+  is still unbuilt — `docs/sitemap.md` §7 already tracked this as deferred,
+  unrelated to this PR.
+- Mobile-viewport testing of the new header's hamburger drawer was
+  inconclusive — this session's browser automation couldn't reliably force
+  a narrow viewport (`resize_window` didn't visibly change rendered layout;
+  same "viewport size fluctuates" flakiness noted in §6 of an earlier
+  session). The responsive classes follow the same Tailwind
+  `hidden .../lg:flex` pattern already used elsewhere in the app, but a
+  real-device or manual DevTools check is worth doing before treating
+  mobile nav as fully confirmed.

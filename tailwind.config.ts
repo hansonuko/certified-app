@@ -6,21 +6,35 @@ import type { Config } from 'tailwindcss';
 // the same palette is available to arbitrary CSS and to Tailwind utilities alike.
 const config: Config = {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  // Class-based (docs/design-system.md's dark-mode addendum, ThemeToggle):
+  // toggled by adding/removing `dark` on <html> (app/layout.tsx's inline
+  // bootstrap script + components/ThemeToggle.tsx), not just OS preference.
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        'certified-ink': 'var(--certified-ink)',
-        'certified-navy': 'var(--certified-navy)',
-        'certified-navy-2': 'var(--certified-navy-2)',
-        'certified-gold': 'var(--certified-gold)',
-        'certified-gold-light': 'var(--certified-gold-light)',
-        'certified-surface': 'var(--certified-surface)',
-        'certified-surface-2': 'var(--certified-surface-2)',
-        'certified-border': 'var(--certified-border)',
-        'certified-muted': 'var(--certified-muted)',
-        'certified-success': 'var(--certified-success)',
-        'certified-danger': 'var(--certified-danger)',
-        'certified-warning': 'var(--certified-warning)',
+        // rgb(var(--x) / <alpha-value>) rather than a bare var(--x) reference
+        // -- this is what lets Tailwind actually generate opacity-modified
+        // utilities (bg-certified-success/10, bg-certified-surface/60, etc.).
+        // The bare-var form silently produced no rule at all for any `/NN`
+        // variant (confirmed against the compiled CSS while building dark
+        // mode) -- every existing status-badge tint across the dashboard,
+        // directory, and verification pages that used one of those was
+        // quietly rendering with no background color at all until this fix.
+        // app/globals.css's --certified-* values are RGB channel triplets
+        // ("15 23 42", not "#0f172a") to match.
+        'certified-ink': 'rgb(var(--certified-ink) / <alpha-value>)',
+        'certified-navy': 'rgb(var(--certified-navy) / <alpha-value>)',
+        'certified-navy-2': 'rgb(var(--certified-navy-2) / <alpha-value>)',
+        'certified-gold': 'rgb(var(--certified-gold) / <alpha-value>)',
+        'certified-gold-light': 'rgb(var(--certified-gold-light) / <alpha-value>)',
+        'certified-surface': 'rgb(var(--certified-surface) / <alpha-value>)',
+        'certified-surface-2': 'rgb(var(--certified-surface-2) / <alpha-value>)',
+        'certified-border': 'rgb(var(--certified-border) / <alpha-value>)',
+        'certified-muted': 'rgb(var(--certified-muted) / <alpha-value>)',
+        'certified-success': 'rgb(var(--certified-success) / <alpha-value>)',
+        'certified-danger': 'rgb(var(--certified-danger) / <alpha-value>)',
+        'certified-warning': 'rgb(var(--certified-warning) / <alpha-value>)',
       },
       fontFamily: {
         // Display/serif for certificate names + marketing headlines; UI sans for
