@@ -24,6 +24,12 @@ import type { StaffRole } from '@/lib/permissions';
  * actions only" for AM/Finance, not no access), so all three see the nav
  * item; the RLS policies on `audit_log` do the actual per-role scoping of
  * what the page shows once they're there.
+ *
+ * Finance (Phase 9 item 1) is Admin + Finance — the one nav item Account
+ * Manager never receives even though it receives Applications/
+ * Organizations, matching the matrix's own split (view_cost_usage_dashboard
+ * is admin+finance only, the mirror image of view_operational_analytics
+ * being admin+account_manager only).
  */
 export type StaffNavItem = { href: string; label: string };
 
@@ -40,6 +46,10 @@ export function getStaffNavItems(role: StaffRole): StaffNavItem[] {
   }
 
   items.push({ href: '/staff/audit-log', label: 'Audit Log' });
+
+  if (role === 'admin' || role === 'finance') {
+    items.push({ href: '/staff/finance', label: 'Finance' });
+  }
 
   if (role === 'admin') {
     items.push({ href: '/staff/settings', label: 'Settings' });
