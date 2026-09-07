@@ -4,10 +4,56 @@ import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyAltchaSolution } from '@/lib/altcha/server';
 import { getContactRateLimiter } from '@/lib/rate-limit/contact-limiter';
-import { contactRelayEmail } from '@/lib/email/contact-templates';
+import { contactRelayEmail, platformContactEmail } from '@/lib/email/contact-templates';
 import { sendEmail } from '@/lib/email/send';
 
 export type ContactFormState = { error: string } | { success: true } | null;
+
+/**
+ * The general "/contact" marketing page (docs/sitemap.md §1) — distinct
+ * from submitContactRequest below (which relays to a specific trainee/org).
+ * Reuses the same rate limiter/Altcha/email plumbing since it's protecting
+ * against the same kind of abuse, just with a fixed platform recipient
+ * instead of a per-target one — see platformContactEmail's own comment for
+ * why this goes straight to an inbox rather than a staff queue table.
+ */
+export async function submitPlatformContactRequest(
+  _prev: ContactFormState,
+  formData: FormData,
+): Promise<ContactFormState> {
+  const topic = (formData.get('topic') as string | null)?.trim() || 'General';
+  const senderName = (formData.get('sender_name') as string | null)?.trim();
+  const senderEmail = (formData.get('sender_email') as string | null)?.trim();
+  const message = (formData.get('message') as string | null)?.trim();
+
+  if (!senderName || !senderEmail || !message) {
+    return { error: 'Name, email, and a message are all required.' };
+  }
+
+  const altchaOk = await verifyAltchaSolution(formData.get('altcha') as string | null);
+  if (!altchaOk) {
+    return { error: 'Bot-protection check failed — please try again.' };
+  }
+
+  const headersList = await headers();
+  const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || headersList.get('x-real-ip') || 'unknown';
+  const rateLimit = await getContactRateLimiter().limit(`platform:${ip}`);
+  if (!rateLimit.success) {
+    return {
+      error: `Too many messages sent from this location. Try again in about ${Math.ceil(rateLimit.resetMs / 60_000)} minute(s).`,
+    };
+  }
+
+  const supportInbox = process.env.SUPPORT_INBOX_EMAIL || 'support@certifiedafrica.app';
+  const template = platformContactEmail({ topic, senderName, senderEmail, message });
+  try {
+    await sendEmail({ to: supportInbox, replyTo: senderEmail, ...template });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Could not send your message. Please try again later.' };
+  }
+
+  return { success: true };
+}
 
 /**
  * The reveal-or-relay contact action (docs/blueprint.md §6, Phase 6) —
