@@ -53,6 +53,23 @@ Picked up from a direct user request (not a `docs/build-phases.md` phase that ex
 
 ---
 
+## 21. Staff wallet management + confirmation-path hardening (user request: "build the admin wallet properly")
+
+Picked up directly from the user, right after Flow A's merge, asking for the wallet-crediting side to be built to a proper standard so a real payment reliably shows up on the org's balance. Three migrations (`0032`–`0033`, not yet applied to the hosted project — needs the same SQL Editor treatment as every migration before it) plus code:
+
+- **`/staff/finance/wallets`** (new, Admin + Finance, `manage_billing`): every organization's certificate-credit balance, searchable; click through to `/staff/finance/wallets/[id]` for the full ledger (last 50 transactions) and a **manual credit/debit adjustment** form (goodwill refund, correcting a support-desk error) — the first thing to actually use the `manual_adjustment` ledger type that had sat in `certificate_credit_transactions`' check constraint since `0030` with no function ever writing one. Migration `0032` adds `adjust_certificate_credits_manual()` (same "one privileged function, no direct write" pattern as the other two), migration `0033` appends `certificate_credits` to `organizations_finance_view` (Finance can't read the base `organizations` table directly, same reason that view exists at all). Every adjustment writes an `AuditLog` row.
+- **A "stuck pending payments" review queue** on the wallets list page — payments sitting `status = 'pending'` for 15+ minutes, the practical signature of "neither the webhook nor the payer's own callback-page visit confirmed this." Gives staff a concrete place to notice a payment that didn't auto-credit and manually fix it via the adjustment form, rather than it silently going unnoticed.
+- **A real correctness fix in `lib/payments/confirm.ts`**: `applyConfirmedSuccess`'s amount/currency-mismatch guard used to return `status: 'failed'` — which would tell a payer "payment failed" on a **real, successful** charge that happened to trip a false-positive mismatch (a real risk given Flutterwave v4's amount-format assumption, §20, was never live-verified), risking them paying a second time while the first charge sits uncredited. Now returns a distinct `'mismatch'` status with honest copy ("we couldn't automatically confirm this — don't pay again, contact support") on the billing callback page, and the payment row correctly stays `pending` (not `failed`) so it surfaces in the new stuck-payments queue above rather than being silently mismarked.
+
+**Verified:** `tsc`/`build`/`test` all clean. **Not yet verified against the hosted project** — migrations `0032`/`0033` are pasted-and-run by the user, not yet applied as of this writing.
+
+**Still open:**
+1. Migrations `0032`/`0033` need applying, then the usual disposable-test pass (a manual adjustment actually lands in the ledger and updates the cached balance; the stuck-payments query actually surfaces a deliberately-aged test row).
+2. The 15-minute staleness threshold is a judgment call, not a documented standard — worth revisiting once real payment volume gives a sense of normal webhook/callback latency.
+3. Everything from §20 (Flutterwave's charge call never fired against any real endpoint, the units-format assumption behind it, sandbox testing still recommended) is unchanged by this section — this hardens what happens *if* something doesn't auto-confirm, it doesn't replace an actual live test.
+
+---
+
 ## 1. Where things stand
 
 | Phase | Status | PR | Notes |

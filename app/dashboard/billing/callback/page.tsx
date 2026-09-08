@@ -21,7 +21,7 @@ export default async function BillingCallbackPage({
   const { orgId } = await requireApprovedIssuerSession();
   const { reference, provider } = await searchParams;
 
-  let outcome: 'success' | 'failed' | 'pending' | 'not_found' | 'error' | 'invalid' = 'invalid';
+  let outcome: 'success' | 'failed' | 'pending' | 'not_found' | 'error' | 'invalid' | 'mismatch' = 'invalid';
   let message: string | undefined;
 
   if (reference && provider && isProviderId(provider)) {
@@ -56,6 +56,10 @@ export default async function BillingCallbackPage({
       body: 'Your payment is being confirmed — this can take a minute. Check back shortly, or refresh this page.',
     },
     failed: { heading: 'Payment failed', body: 'This payment did not go through. No credits were added — you can try again.' },
+    mismatch: {
+      heading: "We couldn't automatically confirm this payment",
+      body: message || "This hasn't been marked as failed — please don't pay again. Contact support and we'll verify and credit it manually.",
+    },
     not_found: { heading: "We couldn't find that payment", body: 'The payment reference in this link is not recognized.' },
     error: {
       heading: 'Something went wrong confirming this payment',
