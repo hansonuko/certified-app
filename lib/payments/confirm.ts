@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { WebhookEvent } from './provider';
 import { getProvider } from './index';
+import { getCharge } from './flutterwave';
 import { addCertificateCredits } from './credits';
 
 /**
@@ -40,6 +41,40 @@ export async function confirmPaymentByReference(
   if (payment.status !== 'pending') return { status: payment.status as 'success' | 'failed' };
 
   const result = await getProvider(provider).verifyTransaction(reference);
+  if ('error' in result) return { status: 'error', message: result.error };
+  if (result.status === 'pending') return { status: 'pending' };
+  if (result.status === 'failed') {
+    await admin.from('payments').update({ status: 'failed', confirmed_at: new Date().toISOString() }).eq('id', payment.id);
+    return { status: 'failed' };
+  }
+
+  return applyConfirmedSuccess(admin, payment, result.amount, result.currency);
+}
+
+/**
+ * Flutterwave-v4-specific counterpart to confirmPaymentByReference above —
+ * v4 has no "verify by our own reference" endpoint, only GET /charges/{id}
+ * using Flutterwave's own charge id (payments.provider_charge_id,
+ * supabase/migrations/0031, stored right after the charge was created in
+ * app/dashboard/billing/actions.ts). Shares the same idempotency and
+ * amount/currency-check guarantees via applyConfirmedSuccess below.
+ */
+export async function confirmFlutterwaveChargeByReference(
+  admin: SupabaseClient,
+  reference: string,
+): Promise<{ status: 'success' | 'failed' | 'pending' | 'not_found' | 'error'; message?: string }> {
+  const { data: payment } = await admin
+    .from('payments')
+    .select('id, org_id, status, quantity, unit_price, discount_percent, amount, currency, purpose, provider_charge_id')
+    .eq('provider_reference', reference)
+    .eq('provider', 'flutterwave')
+    .maybeSingle();
+
+  if (!payment) return { status: 'not_found' };
+  if (payment.status !== 'pending') return { status: payment.status as 'success' | 'failed' };
+  if (!payment.provider_charge_id) return { status: 'pending' }; // charge creation hadn't recorded an id yet
+
+  const result = await getCharge(payment.provider_charge_id);
   if ('error' in result) return { status: 'error', message: result.error };
   if (result.status === 'pending') return { status: 'pending' };
   if (result.status === 'failed') {

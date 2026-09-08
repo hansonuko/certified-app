@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { requireApprovedIssuerSession } from '@/lib/auth/issuer';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { confirmPaymentByReference } from '@/lib/payments/confirm';
+import { confirmPaymentByReference, confirmFlutterwaveChargeByReference } from '@/lib/payments/confirm';
 import { isProviderId } from '@/lib/payments';
 
 // /dashboard/billing/callback — where Flutterwave/Paystack redirect the
@@ -38,7 +38,10 @@ export default async function BillingCallbackPage({
       .maybeSingle();
 
     if (payment?.org_id === orgId) {
-      const result = await confirmPaymentByReference(admin, provider, reference);
+      const result =
+        provider === 'flutterwave'
+          ? await confirmFlutterwaveChargeByReference(admin, reference)
+          : await confirmPaymentByReference(admin, provider, reference);
       outcome = result.status;
       message = 'message' in result ? result.message : undefined;
     } else {
