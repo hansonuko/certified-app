@@ -11,12 +11,12 @@ import type { StaffRole } from '@/lib/permissions';
  * per docs/session-handoff.md §3 item 4. This list grows phase by phase
  * rather than linking to routes that don't exist.
  *
- * Organizations is admin+account_manager only for now, even though
- * Finance's role has the underlying view_organizations capability
- * (docs/roles-permissions.md §2, limited columns) — Phase 2.5's own
- * prompt defers building Finance's reduced-field view of this route to
- * Phase 9, so the route itself excludes Finance until then (see
- * app/staff/(console)/organizations/page.tsx).
+ * Organizations is admin+account_manager+finance (the one nav item that
+ * doesn't follow the "AM and Finance are mirror images" pattern below) —
+ * Finance's route (app/staff/(console)/organizations/page.tsx) renders a
+ * reduced view sourced from organizations_finance_view rather than the
+ * full Admin/AM one, closing the gap Phase 2.5's own prompt deferred to
+ * Phase 9.
  *
  * Team (Phase 2.75) is Admin-only per the matrix — Account Manager and
  * Finance never receive it. Audit Log is different: every role has
@@ -38,7 +38,13 @@ export function getStaffNavItems(role: StaffRole): StaffNavItem[] {
 
   if (role === 'admin' || role === 'account_manager') {
     items.push({ href: '/staff/applications', label: 'Applications' });
+  }
+
+  if (role === 'admin' || role === 'account_manager' || role === 'finance') {
     items.push({ href: '/staff/organizations', label: 'Organizations' });
+  }
+
+  if (role === 'admin' || role === 'account_manager') {
     items.push({ href: '/staff/analytics', label: 'Analytics' });
   }
 
