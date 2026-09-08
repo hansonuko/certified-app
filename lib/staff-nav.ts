@@ -30,6 +30,12 @@ import type { StaffRole } from '@/lib/permissions';
  * Organizations, matching the matrix's own split (view_cost_usage_dashboard
  * is admin+finance only, the mirror image of view_operational_analytics
  * being admin+account_manager only).
+ *
+ * Wallets (docs/build-phases.md Phase 11 follow-up, §21) is its own nav
+ * item, not just a link buried inside the Finance overview page the way
+ * Reports/Billing are — user feedback was that it needed to be directly
+ * visible, not click-through-to-find. Same admin+finance gate as Finance
+ * itself (manage_billing).
  */
 export type StaffNavItem = { href: string; label: string };
 
@@ -56,6 +62,7 @@ export function getStaffNavItems(role: StaffRole): StaffNavItem[] {
 
   if (role === 'admin' || role === 'finance') {
     items.push({ href: '/staff/finance', label: 'Finance' });
+    items.push({ href: '/staff/finance/wallets', label: 'Wallets' });
   }
 
   if (role === 'admin') {
