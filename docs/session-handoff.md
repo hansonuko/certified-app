@@ -89,7 +89,7 @@ Picked up from a direct user request (not a `docs/build-phases.md` phase that ex
 | — Dashboard: Help + Billing badge | ✅ merged | #40 | Help links to `/contact`/`/faq`; dropped a stale `comingSoon` badge off Billing (page was already correct) |
 | — Dashboard: Messages inbox | ✅ merged | #41 | New `contact_requests` table — the contact/hire relay was email-only before. Migration 0029. See §19 |
 | — Sign-out button, both dashboard shells | ✅ merged | #42 | Closed a gap flagged since #22 |
-| 11, item 1 — Monetization Flow A (certificate credits) | 🟡 branch ready, no PR yet | — | Migration `0030` not yet applied live. See §20 |
+| 11, item 1 — Monetization Flow A (certificate credits) | ✅ merged | #44 | Migration `0030` applied live; `0031` (Flutterwave v4's `provider_charge_id`) needs the same treatment — see §20 |
 
 39 PRs merged, 0 open (from this session's own work) as of this writing,
 plus a stale unrelated docs-only PR (#23) nobody's acted on. `main` builds
