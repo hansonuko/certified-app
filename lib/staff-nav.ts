@@ -39,6 +39,7 @@ export function getStaffNavItems(role: StaffRole): StaffNavItem[] {
   if (role === 'admin' || role === 'account_manager') {
     items.push({ href: '/staff/applications', label: 'Applications' });
     items.push({ href: '/staff/organizations', label: 'Organizations' });
+    items.push({ href: '/staff/analytics', label: 'Analytics' });
   }
 
   if (role === 'admin') {
