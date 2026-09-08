@@ -6,20 +6,25 @@ verified, what's still open. Read this alongside `docs/build-phases.md`
 happened" complement to that plan.
 
 **Last updated:** 2026-09-08 — since the previous update: the platform's
-first monetization work, Monetization Flow A (certificate credits), scoped
-across three flows in conversation but only Flow A approved and built —
-migration `0030` (not yet applied to the hosted project), the whole
-`lib/payments/` abstraction (Flutterwave + Paystack), issuance gating,
-real `/dashboard/billing` and `/staff/finance/billing` pages, two webhook
-routes, two new `CLAUDE.md` non-negotiable rules, and a public `/pricing`
-copy fix. See §20 for the full recap — on branch
-`monetization-flow-a-certificate-credits`, **not yet a PR, not yet
-merged, migration not yet live-verified**. Everything before this is
-unchanged from the previous update: **39 PRs merged, 0 open** from that
-session's own work, plus one stale unrelated docs-only PR (#23) nobody's
-acted on. `main` builds clean (`tsc`, `npm run build`) as of `d2ad534`;
-this branch also builds clean on top of it (`tsc`, `npm run build`,
-`npm test` — 20/20 — all verified before this update).
+first monetization work went from scoped, to built, to merged, to live in
+production, all in one session. Monetization Flow A (certificate credits) —
+migrations `0030`–`0033`, all applied and confirmed by the user — the whole
+`lib/payments/` abstraction (Paystack fully live-verified; Flutterwave
+rebuilt for v4 after real credentials surfaced a v3-vs-v4 architecture
+mismatch, code-verified but never fired against a real charge endpoint),
+issuance gating, real `/dashboard/billing`/`/staff/finance/billing` pages, a
+new `/staff/finance/wallets` staff wallet-management surface (balances,
+ledger, manual adjustment, a stuck-pending-payments queue) now also a
+direct sidebar nav item, two webhook routes, two new `CLAUDE.md`
+non-negotiable rules, and a public `/pricing` copy fix. **PRs #44–#48 all
+merged.** `main` is deployed to production
+(https://certified-app-lime.vercel.app) **twice this session** — once
+after #46, again after #48 — smoke-checked both times. See §§20–23 for the
+full recap, in order. Everything before this is unchanged from the
+previous update otherwise: 39 PRs merged in the prior session's own work,
+plus one stale unrelated docs-only PR (#23) nobody's acted on. `tsc`,
+`npm run build`, `npm test` (20/20) all clean on `main` as of this
+writing.
 
 ---
 
@@ -87,6 +92,18 @@ User confirmed migrations `0032`/`0033` applied, merged PR #46, and asked to see
 
 ---
 
+## 23. Wallets nav visibility + webhook URLs handed off + second redeploy
+
+Three small, fast follow-ups right after §22, each user-requested individually:
+
+- **PR #48**: user feedback that `/staff/finance/wallets` (§21) wasn't discoverable — it only existed as a link inside the Finance overview page, the same way Reports/Billing do, but the user wanted it directly visible. `lib/staff-nav.ts` now lists **Wallets** as its own top-level sidebar item, same Admin+Finance (`manage_billing`) gate as Finance itself.
+- **Webhook URLs handed off**: `https://certified-app-lime.vercel.app/api/webhooks/paystack` and `.../api/webhooks/flutterwave`, for the user to register in each provider's dashboard. Paystack needs no further setup (reuses `PAYSTACK_SECRET_KEY`). Flutterwave will need its dashboard-issued secret hash sent back and set as `FLUTTERWAVE_WEBHOOK_SECRET_HASH` (`.env.local` + Vercel Production/Preview) once configured — still not done as of this writing, so Flutterwave webhooks still fail closed and the billing callback page's fallback verify remains the only confirmation path for it.
+- **Second production redeploy**: after PR #48 merged, user asked to "redeploy all updates to this point." `npx vercel --prod` succeeded cleanly this time (no transient failure), aliased to `https://certified-app-lime.vercel.app`. Smoke-checked `/`, `/login`, `/staff/login`, `/verify`, `/pricing`, `/dashboard/billing` (all 200) plus both webhook routes (405 on a plain GET — expected and correct, since they only implement `POST`; confirms the routes are deployed and reachable, not broken).
+
+**Still open, unchanged from §22's list**: the live Flutterwave charge test, `CRON_SECRET` on Vercel, and `FLUTTERWAVE_WEBHOOK_SECRET_HASH`.
+
+---
+
 ## 1. Where things stand
 
 | Phase | Status | PR | Notes |
@@ -142,13 +159,16 @@ crons that run once a day — fixed to `0 0 * * *` (#24) before the deploy
 would go through at all. `CRON_SECRET` being unset on the Vercel project
 (noted here previously) is still true and still worth fixing before relying
 on the cron firing for real, but it no longer blocks deployment itself.
-Everything through PR #30 (all of Phase 9 + the polish pass) is on
-production as of this writing; **everything since (#31–#42 — the Finance
-org view, the whole staff-tooling batch, all five dashboard fixes, sign-
-out) is merged to `main` but not yet in a fresh deploy** — redeploying is a
-separate, explicit step per `CLAUDE.md`'s free-tier discipline, not
-something that happens automatically on merge (auto-deploy-on-push is
-disabled by design). Propose it, don't just do it, next time this comes up.
+**Update (this session, §§22–23): redeployed twice more**, both times
+explicitly requested rather than assumed — once after PR #46 (the
+monetization/wallet work, with the new Paystack/Flutterwave env vars added
+first) and again after PR #48 (the wallet nav-visibility fix). As of this
+writing, **everything through PR #48 is live on production**, not just
+merged to `main` — the gap this paragraph used to describe (#31–#42 merged
+but undeployed) is fully closed. Redeploying is still a separate, explicit
+step per `CLAUDE.md`'s free-tier discipline (auto-deploy-on-push stays
+disabled by design) — still propose it, don't just do it, the next time
+`main` moves ahead of production.
 
 **Supabase project**: `wvcvzeybvloamkkghckp` (hosted, not local — confirmed
 again this session that the Supabase CLI flat out can't run on this
@@ -160,8 +180,12 @@ project's SQL Editor by the user — see §18 for two fresh lessons learned
 about that this session (the free-tier-quota style verification pattern,
 and a real `CREATE OR REPLACE VIEW` column-ordering bug).
 
-**Migrations `0001`–`0029` all confirmed applied** — `0024`–`0029` this
-session (`0026`–`0029` applied by the user, then fully re-verified live —
+**Migrations `0001`–`0033` all confirmed applied** — `0030`–`0033` this
+session (Monetization Flow A + wallet management, user-applied, not yet
+independently re-verified via a disposable-test-account pass the way
+`0026`–`0029` were — see §§20–21's own "still open" notes), `0024`–`0029`
+in the previous session (`0026`–`0029` applied by the user, then fully
+re-verified live —
 see §19 — after this doc's previous update had already covered `0024`/
 `0025`), the rest verified directly in earlier sessions via a throwaway
 script querying real columns/tables through the service-role client (not
