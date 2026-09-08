@@ -4,6 +4,7 @@ import { can } from '@/lib/permissions';
 import { getStaffAccounts } from './actions';
 import { InviteForm } from './InviteForm';
 import { StaffRow } from './StaffRow';
+import { PermissionsMatrix } from './PermissionsMatrix';
 
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Admin',
@@ -44,7 +45,9 @@ export default async function TeamPage() {
               <td className="py-2">{member.name}</td>
               <td className="py-2">{member.email}</td>
               <td className="py-2">{ROLE_LABEL[member.role] ?? member.role}</td>
-              <td className="py-2">{member.status === 'suspended' ? 'Suspended' : 'Active'}</td>
+              <td className="py-2">
+                {member.status === 'deactivated' ? 'Deactivated' : member.status === 'suspended' ? 'Suspended' : 'Active'}
+              </td>
               <td className="py-2">{new Date(member.created_at).toLocaleDateString()}</td>
               <td className="py-2">
                 <StaffRow staffId={member.id} currentRole={member.role} status={member.status} isSelf={member.id === userId} />
@@ -53,6 +56,8 @@ export default async function TeamPage() {
           ))}
         </tbody>
       </table>
+
+      <PermissionsMatrix />
     </main>
   );
 }

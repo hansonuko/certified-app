@@ -44,3 +44,11 @@ export function staffReinstatedEmail(name: string) {
 <p>Your access to the Certified Africa staff console has been reinstated. You can sign in as before.</p>`,
   };
 }
+
+export function staffDeactivatedEmail(name: string) {
+  return {
+    subject: `Your Certified Africa staff access has been deactivated`,
+    html: `<p>Hi ${escapeHtml(name)},</p>
+<p>Your access to the Certified Africa staff console has been permanently deactivated. Unlike a suspension, this cannot be reversed from the staff console — contact an Admin directly if you believe this is a mistake.</p>`,
+  };
+}

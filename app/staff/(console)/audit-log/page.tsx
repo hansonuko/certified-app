@@ -12,6 +12,7 @@ const ACTION_LABEL: Record<string, string> = {
   staff_role_changed: 'Staff role changed',
   staff_account_suspended: 'Staff account suspended',
   staff_account_reinstated: 'Staff account reinstated',
+  staff_account_deactivated: 'Staff account deactivated',
   bootstrap_admin_created: 'First Admin bootstrapped',
 };
 

@@ -6,7 +6,12 @@ import { requireStaffSession } from '@/lib/auth/staff';
 import { can, type StaffRole } from '@/lib/permissions';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { staffInviteEmail, staffSuspendedEmail, staffReinstatedEmail } from '@/lib/email/staff-templates';
+import {
+  staffInviteEmail,
+  staffSuspendedEmail,
+  staffReinstatedEmail,
+  staffDeactivatedEmail,
+} from '@/lib/email/staff-templates';
 import { sendEmail } from '@/lib/email/send';
 
 export type TeamActionState = { error: string } | null;
@@ -219,6 +224,67 @@ export async function suspendStaffMember(_prev: TeamActionState, formData: FormD
 
 export async function reinstateStaffMember(_prev: TeamActionState, formData: FormData): Promise<TeamActionState> {
   return setStaffStatus(formData.get('staff_id') as string, false);
+}
+
+/**
+ * Permanently deactivate a staff account — a one-way door, unlike Suspend/
+ * Reinstate above. No `reinstateFromDeactivated` action exists on purpose:
+ * getting access back after deactivation means a fresh invite from an
+ * Admin, not a click in this UI. Requires the same confirmed-checkbox
+ * pattern as promoting/creating an Admin (inviteStaffMember,
+ * changeStaffRole) since it's similarly consequential and hard to walk
+ * back.
+ */
+export async function deactivateStaffMember(_prev: TeamActionState, formData: FormData): Promise<TeamActionState> {
+  const targetId = formData.get('staff_id') as string;
+  const confirmed = formData.get('confirm_deactivate') === 'true';
+  const { userId, role: actingRole } = await requireStaffSession();
+
+  if (!can(actingRole, 'manage_staff_accounts')) {
+    return { error: "You don't have permission to deactivate staff accounts." };
+  }
+  if (targetId === userId) return { error: "You can't deactivate your own account — ask another Admin." };
+  if (!confirmed) {
+    return { error: 'Confirm the checkbox — deactivation is permanent and cannot be undone from this console.' };
+  }
+
+  const admin = createAdminClient();
+  const { data: target } = await admin
+    .from('admin_users')
+    .select('id, role, status, name, email')
+    .eq('id', targetId)
+    .maybeSingle();
+  if (!target) return { error: 'Staff account not found.' };
+
+  if (target.role === 'admin' && !can(actingRole, 'manage_admin_accounts')) {
+    return { error: "You don't have permission to deactivate an Admin account." };
+  }
+  if (target.status === 'deactivated') return { error: 'This account is already deactivated.' };
+
+  const { error: updateError } = await admin.from('admin_users').update({ status: 'deactivated' }).eq('id', targetId);
+  if (updateError) return { error: `Could not update status: ${updateError.message}` };
+
+  const { error: auditError } = await admin.from('audit_log').insert({
+    actor_id: userId,
+    actor_type: 'staff',
+    action: 'staff_account_deactivated',
+    target_type: 'admin_users',
+    target_id: targetId,
+    before: { status: target.status },
+    after: { status: 'deactivated' },
+  });
+  if (auditError) {
+    console.error('Failed to write AuditLog row for staff deactivation:', auditError.message);
+  }
+
+  try {
+    await sendEmail({ to: target.email, ...staffDeactivatedEmail(target.name) });
+  } catch (err) {
+    console.error('Failed to send staff deactivation email:', err);
+  }
+
+  revalidatePath('/staff/team');
+  return null;
 }
 
 // Re-exported so the page (a server component) can fetch the list through
