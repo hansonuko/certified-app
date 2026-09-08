@@ -70,6 +70,23 @@ Picked up directly from the user, right after Flow A's merge, asking for the wal
 
 ---
 
+## 22. Production redeploy with live payment credentials
+
+User confirmed migrations `0032`/`0033` applied, merged PR #46, and asked to see it live — this section covers that redeploy, not a new feature.
+
+**Vercel production env vars added**: `PAYSTACK_SECRET_KEY`, `PAYSTACK_PUBLIC_KEY`, `FLUTTERWAVE_CLIENT_ID`, `FLUTTERWAVE_CLIENT_SECRET`, `FLUTTERWAVE_ENCRYPTION_KEY` (Production + Preview both). `FLUTTERWAVE_WEBHOOK_SECRET_HASH` intentionally left unset — no Flutterwave webhook is configured on the dashboard yet, and the webhook route already fails closed (rejects everything) when it's unset, which is the correct behavior until that's set up.
+
+**A real bug caught and fixed before it could bite**: the first pass of adding these vars used PowerShell's `"string" | npx vercel env add ...` piping — PowerShell writes string-literal pipeline input to a native process's stdin with a **UTF-8 BOM prefix**, silently prepending an invisible byte sequence to the value. Caught on `NEXT_PUBLIC_APP_URL` specifically (the one var stored as readable `Config` type, not write-only `Secret`) by pulling it back and hex-dumping it — confirmed the BOM was there. Since the four Flutterwave/Paystack vars added the same way are stored as `Secret` type and **can't be read back at all**, there was no way to spot-check them the same way — the only safe fix was to delete and re-add all of them via Bash `printf` instead (which doesn't add a BOM), rather than assume they were fine. A BOM-corrupted `FLUTTERWAVE_CLIENT_SECRET`/`FLUTTERWAVE_ENCRYPTION_KEY` would have failed OAuth/decryption in a confusing way (wrong-looking "invalid credentials" errors with technically-"correct" values) — worth remembering for any future "pipe a secret into a CLI via PowerShell" moment in this environment: **use Bash `printf`, not PowerShell string piping, for anything that becomes a stored secret**, especially write-only ones you can't verify afterward.
+
+**Deployed and smoke-checked**: `npx vercel --prod` (one transient `fetch failed` on the first attempt, succeeded on retry — not a config issue, just a flaky upload). `/`, `/login`, `/staff/login`, `/verify`, `/pricing`, `/dashboard/billing` all return 200 on `https://certified-app-lime.vercel.app`. This is the first production deploy since the Phase 4 era (§7) — everything from Phase 5 through this Flow A wallet work is now live, not just on `main` + hosted Supabase.
+
+**Still open:**
+1. The actual live Flutterwave charge test (§20) still hasn't happened — this redeploy makes it possible to do from production, not a substitute for it.
+2. `CRON_SECRET` still isn't set on Vercel (unchanged from every previous update) — the bulk-issuance cron route's auth still no-ops.
+3. `FLUTTERWAVE_WEBHOOK_SECRET_HASH` needs setting once a webhook is actually configured on the Flutterwave dashboard — until then, the billing callback page's fallback verify is the only confirmation path for Flutterwave payments (works fine on its own, per §20/§21's design, just worth knowing webhooks aren't live yet).
+
+---
+
 ## 1. Where things stand
 
 | Phase | Status | PR | Notes |
