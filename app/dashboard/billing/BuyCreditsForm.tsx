@@ -2,12 +2,17 @@
 
 import { useActionState, useState } from 'react';
 import { initiateCreditPurchase, initiateFlutterwaveCharge, type BuyCreditsState } from './actions';
+import { getMobileMoneyNetworksForCountry, USSD_BANKS } from '@/lib/payments/flutterwave-options';
 
 const QUICK_AMOUNTS = [1, 10, 20, 50];
 
-export function BuyCreditsForm({ initialQuantity = 20 }: { initialQuantity?: number }) {
+type FlutterwaveMethod = 'card' | 'mobile_money' | 'ussd' | 'bank_transfer';
+
+export function BuyCreditsForm({ initialQuantity = 20, orgCountry = null }: { initialQuantity?: number; orgCountry?: string | null }) {
   const [quantity, setQuantity] = useState(initialQuantity);
   const [provider, setProvider] = useState<'paystack' | 'flutterwave'>('paystack');
+  const [flutterwaveMethod, setFlutterwaveMethod] = useState<FlutterwaveMethod>('card');
+  const [mobileMoneyChoice, setMobileMoneyChoice] = useState({ network: '', countryCode: '' });
 
   const [paystackState, paystackAction, paystackPending] = useActionState<BuyCreditsState, FormData>(initiateCreditPurchase, null);
   const [flutterwaveState, flutterwaveAction, flutterwavePending] = useActionState<BuyCreditsState, FormData>(
@@ -16,6 +21,15 @@ export function BuyCreditsForm({ initialQuantity = 20 }: { initialQuantity?: num
   );
 
   const payLabel = quantity === 1 ? 'Pay for certificate' : `Pay for ${quantity} certificates`;
+
+  // Mobile money is only offered for the currencies Flutterwave actually
+  // supports it in, given this app's supported billing currencies
+  // (lib/payments/currency.ts) — Nigerian orgs don't see it at all, same as
+  // USSD is Nigeria-only below. See lib/payments/flutterwave-options.ts.
+  const mobileMoneyNetworks = getMobileMoneyNetworksForCountry(orgCountry);
+  const isNigeria = orgCountry === 'Nigeria';
+  const flutterwaveError = flutterwaveState && 'error' in flutterwaveState ? flutterwaveState.error : undefined;
+  const flutterwaveInstructions = flutterwaveState && 'instructions' in flutterwaveState ? flutterwaveState.instructions : undefined;
 
   return (
     <div className="flex flex-col gap-4">
@@ -56,14 +70,14 @@ export function BuyCreditsForm({ initialQuantity = 20 }: { initialQuantity?: num
         </label>
         <label className="flex items-center gap-2">
           <input type="radio" checked={provider === 'flutterwave'} onChange={() => setProvider('flutterwave')} />
-          Flutterwave (card)
+          Flutterwave
         </label>
       </fieldset>
 
       {provider === 'paystack' ? (
         <form action={paystackAction} className="flex flex-col gap-3">
           <input type="hidden" name="quantity" value={quantity} />
-          {paystackState?.error ? <p className="text-sm text-certified-danger">{paystackState.error}</p> : null}
+          {paystackState && 'error' in paystackState ? <p className="text-sm text-certified-danger">{paystackState.error}</p> : null}
           <button
             type="submit"
             disabled={paystackPending}
@@ -73,41 +87,190 @@ export function BuyCreditsForm({ initialQuantity = 20 }: { initialQuantity?: num
           </button>
         </form>
       ) : (
-        <form action={flutterwaveAction} className="flex flex-col gap-3 rounded-card border border-certified-border p-4">
+        <form action={flutterwaveAction} className="flex flex-col gap-4 rounded-card border border-certified-border p-4">
           <input type="hidden" name="quantity" value={quantity} />
-          <p className="text-xs text-certified-muted">
-            Card details are sent straight to this form&apos;s submit handler, encrypted immediately, and never stored.
-          </p>
-          <label className="flex flex-col gap-1 text-sm text-certified-ink">
-            Card number
-            <input name="card_number" inputMode="numeric" autoComplete="cc-number" required className="rounded-control border border-certified-border px-3 py-2" />
-          </label>
-          <div className="flex gap-3">
-            <label className="flex flex-1 flex-col gap-1 text-sm text-certified-ink">
-              Expiry month
-              <input name="expiry_month" inputMode="numeric" placeholder="MM" autoComplete="cc-exp-month" required className="rounded-control border border-certified-border px-3 py-2" />
-            </label>
-            <label className="flex flex-1 flex-col gap-1 text-sm text-certified-ink">
-              Expiry year
-              <input name="expiry_year" inputMode="numeric" placeholder="YY" autoComplete="cc-exp-year" required className="rounded-control border border-certified-border px-3 py-2" />
-            </label>
-            <label className="flex flex-1 flex-col gap-1 text-sm text-certified-ink">
-              CVV
-              <input name="cvv" inputMode="numeric" autoComplete="cc-csc" required className="rounded-control border border-certified-border px-3 py-2" />
-            </label>
-          </div>
-          <label className="flex flex-col gap-1 text-sm text-certified-ink">
-            Name on card (optional)
-            <input name="card_holder_name" autoComplete="cc-name" className="rounded-control border border-certified-border px-3 py-2" />
-          </label>
-          {flutterwaveState?.error ? <p className="text-sm text-certified-danger">{flutterwaveState.error}</p> : null}
-          <button
-            type="submit"
-            disabled={flutterwavePending}
-            className="self-start rounded-control bg-certified-navy px-4 py-2 text-white disabled:opacity-50"
-          >
-            {flutterwavePending ? 'Processing…' : payLabel}
-          </button>
+          <input type="hidden" name="flutterwave_method" value={flutterwaveMethod} />
+
+          {flutterwaveInstructions ? (
+            // A charge is in flight (USSD dial code, mobile money approval
+            // prompt, or a generated bank transfer account) — hide the
+            // method form entirely rather than let a second submit fire a
+            // second charge for the same top-up while the first is pending.
+            <div className="rounded-control border border-certified-navy bg-certified-navy/5 p-3 text-sm text-certified-ink">
+              <p className="font-medium">Complete your payment</p>
+              <p>{flutterwaveInstructions}</p>
+              <p className="mt-1 text-xs text-certified-muted">
+                Your balance updates automatically once payment is confirmed. Reload this page, or{' '}
+                <a href="/dashboard/billing" className="underline">
+                  start a new payment
+                </a>{' '}
+                if this one didn&apos;t go through.
+              </p>
+            </div>
+          ) : (
+            <>
+              <fieldset className="flex flex-col gap-1 text-sm text-certified-ink">
+                <legend className="mb-1">Pay via</legend>
+                <div className="flex flex-wrap gap-3">
+                  <label className="flex items-center gap-2">
+                    <input type="radio" checked={flutterwaveMethod === 'card'} onChange={() => setFlutterwaveMethod('card')} />
+                    Card
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="radio" checked={flutterwaveMethod === 'bank_transfer'} onChange={() => setFlutterwaveMethod('bank_transfer')} />
+                    Bank transfer
+                  </label>
+                  {isNigeria ? (
+                    <label className="flex items-center gap-2">
+                      <input type="radio" checked={flutterwaveMethod === 'ussd'} onChange={() => setFlutterwaveMethod('ussd')} />
+                      USSD
+                    </label>
+                  ) : null}
+                  {mobileMoneyNetworks.length > 0 ? (
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={flutterwaveMethod === 'mobile_money'}
+                        onChange={() => setFlutterwaveMethod('mobile_money')}
+                      />
+                      Mobile money
+                    </label>
+                  ) : null}
+                </div>
+              </fieldset>
+
+              {flutterwaveMethod === 'card' ? (
+                <div className="flex flex-col gap-3">
+                  <p className="text-xs text-certified-muted">
+                    Card details are sent straight to this form&apos;s submit handler, encrypted immediately, and never stored.
+                  </p>
+                  <label className="flex flex-col gap-1 text-sm text-certified-ink">
+                    Card number
+                    <input
+                      name="card_number"
+                      inputMode="numeric"
+                      autoComplete="cc-number"
+                      required
+                      className="rounded-control border border-certified-border px-3 py-2"
+                    />
+                  </label>
+                  <div className="flex gap-3">
+                    <label className="flex flex-1 flex-col gap-1 text-sm text-certified-ink">
+                      Expiry month
+                      <input
+                        name="expiry_month"
+                        inputMode="numeric"
+                        placeholder="MM"
+                        autoComplete="cc-exp-month"
+                        required
+                        className="rounded-control border border-certified-border px-3 py-2"
+                      />
+                    </label>
+                    <label className="flex flex-1 flex-col gap-1 text-sm text-certified-ink">
+                      Expiry year
+                      <input
+                        name="expiry_year"
+                        inputMode="numeric"
+                        placeholder="YY"
+                        autoComplete="cc-exp-year"
+                        required
+                        className="rounded-control border border-certified-border px-3 py-2"
+                      />
+                    </label>
+                    <label className="flex flex-1 flex-col gap-1 text-sm text-certified-ink">
+                      CVV
+                      <input
+                        name="cvv"
+                        inputMode="numeric"
+                        autoComplete="cc-csc"
+                        required
+                        className="rounded-control border border-certified-border px-3 py-2"
+                      />
+                    </label>
+                  </div>
+                  <label className="flex flex-col gap-1 text-sm text-certified-ink">
+                    Name on card (optional)
+                    <input name="card_holder_name" autoComplete="cc-name" className="rounded-control border border-certified-border px-3 py-2" />
+                  </label>
+                </div>
+              ) : null}
+
+              {flutterwaveMethod === 'bank_transfer' ? (
+                <p className="text-sm text-certified-muted">
+                  We&apos;ll generate a one-time bank account number for you to transfer {quantity === 1 ? 'the' : 'this'} amount into —
+                  shown on the next screen after you submit.
+                </p>
+              ) : null}
+
+              {flutterwaveMethod === 'ussd' ? (
+                <label className="flex flex-col gap-1 text-sm text-certified-ink">
+                  Your bank
+                  <select name="ussd_bank" required defaultValue="" className="rounded-control border border-certified-border px-3 py-2">
+                    <option value="" disabled>
+                      Select your bank
+                    </option>
+                    {USSD_BANKS.map((bank) => (
+                      <option key={bank.code} value={bank.code}>
+                        {bank.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-certified-muted">
+                    You&apos;ll get a USSD code to dial from your phone to complete payment.
+                  </span>
+                </label>
+              ) : null}
+
+              {flutterwaveMethod === 'mobile_money' ? (
+                <div className="flex flex-col gap-3">
+                  <label className="flex flex-col gap-1 text-sm text-certified-ink">
+                    Network
+                    <select
+                      required
+                      defaultValue=""
+                      onChange={(e) => {
+                        const [network, countryCode] = e.target.value.split(':');
+                        setMobileMoneyChoice({ network: network ?? '', countryCode: countryCode ?? '' });
+                      }}
+                      className="rounded-control border border-certified-border px-3 py-2"
+                    >
+                      <option value="" disabled>
+                        Select your mobile money provider
+                      </option>
+                      {mobileMoneyNetworks.map((option) => (
+                        <option key={`${option.network}-${option.countryCode}`} value={`${option.network}:${option.countryCode}`}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-sm text-certified-ink">
+                    Mobile money phone number
+                    <input
+                      name="mobile_money_phone"
+                      inputMode="numeric"
+                      required
+                      placeholder="e.g. 0244123456"
+                      className="rounded-control border border-certified-border px-3 py-2"
+                    />
+                  </label>
+                  {/* The select above carries "NETWORK:COUNTRY_CODE" together, just for a friendlier single dropdown — split into the two plain fields the server action actually reads, kept in sync via the select's own onChange. */}
+                  <input type="hidden" name="mobile_money_network" value={mobileMoneyChoice.network} />
+                  <input type="hidden" name="mobile_money_country_code" value={mobileMoneyChoice.countryCode} />
+                </div>
+              ) : null}
+
+              {flutterwaveError ? <p className="text-sm text-certified-danger">{flutterwaveError}</p> : null}
+
+              <button
+                type="submit"
+                disabled={flutterwavePending}
+                className="self-start rounded-control bg-certified-navy px-4 py-2 text-white disabled:opacity-50"
+              >
+                {flutterwavePending ? 'Processing…' : payLabel}
+              </button>
+            </>
+          )}
         </form>
       )}
     </div>

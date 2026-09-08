@@ -56,7 +56,8 @@ export default async function BillingPage({
       <section className="flex flex-col gap-3">
         <h2 className="font-display text-lg text-certified-navy">Pay for certificates</h2>
         <p className="text-sm text-certified-muted">
-          Every certificate you issue — single or bulk — spends one credit. Top up below with Paystack.
+          Every certificate you issue — single or bulk — spends one credit. Top up below with Paystack or Flutterwave
+          (card, mobile money, USSD, or bank transfer).
         </p>
         <table className="w-full max-w-lg text-left text-sm">
           <thead>
@@ -79,7 +80,7 @@ export default async function BillingPage({
             })}
           </tbody>
         </table>
-        <BuyCreditsForm initialQuantity={initialQuantity} />
+        <BuyCreditsForm initialQuantity={initialQuantity} orgCountry={org?.address_country ?? null} />
       </section>
 
       <section className="flex flex-col gap-3">

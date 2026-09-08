@@ -10,28 +10,39 @@ import { encryptCard } from './flutterwave-crypto';
  *
  * - Auth is OAuth2 client-credentials (FLUTTERWAVE_CLIENT_ID/_SECRET
  *   against idp.flutterwave.com), not a static Bearer secret key.
- * - There is no hosted-checkout/payment-link endpoint. A card charge is
- *   created directly (POST /orchestration/direct-charges) with the card
- *   number/expiry/CVV already attached, field-encrypted with
- *   FLUTTERWAVE_ENCRYPTION_KEY (lib/payments/flutterwave-crypto.ts) — the
- *   issuer's card details are collected on our own page
- *   (app/dashboard/billing/FlutterwaveCardForm.tsx), not a Flutterwave-
- *   hosted one.
- * - A charge can come back requiring a redirect (3DS) — handled the same
- *   "redirect out, redirect back, verify" shape as Paystack — or requiring
- *   PIN/OTP authorization, which is NOT implemented here (see
- *   createDirectCharge's caller in actions.ts): rather than guess at an
- *   unverified request schema for that step, a charge requiring it surfaces
- *   a clear "try a different card" error instead of silently mishandling
- *   real card data.
+ * - There is no hosted-checkout/payment-link endpoint. A charge is created
+ *   directly (POST /orchestration/direct-charges) with the chosen payment
+ *   method's details already attached — the issuer picks card, mobile
+ *   money, USSD, or bank transfer on our own page
+ *   (app/dashboard/billing/BuyCreditsForm.tsx), not a Flutterwave-hosted
+ *   one. Card is the only method whose fields are sensitive enough to need
+ *   field-level encryption (FLUTTERWAVE_ENCRYPTION_KEY,
+ *   lib/payments/flutterwave-crypto.ts) — mobile money/USSD/bank transfer
+ *   carry no card-equivalent secret, per Flutterwave's own v4 schema.
+ * - A charge can come back requiring a redirect (3DS, some mobile money
+ *   networks) — handled the same "redirect out, redirect back, verify"
+ *   shape as Paystack — requiring an out-of-band action the payer must
+ *   complete themselves (dial a USSD code, transfer to a generated account,
+ *   authorize on their phone) — surfaced back to the issuer as plain
+ *   instructions rather than a redirect, since there's nowhere to redirect
+ *   *to* — or requiring PIN/OTP authorization, which is NOT implemented
+ *   here (see createDirectCharge's caller in actions.ts): rather than guess
+ *   at an unverified request schema for that step, a charge requiring it
+ *   surfaces a clear "try a different card" error instead of silently
+ *   mishandling real card data. Likewise a mobile money network that comes
+ *   back wanting QR-code confirmation (a real, documented v4 outcome) is
+ *   declined with a clear message rather than guessed at.
  *
  * UNTESTED against any real Flutterwave endpoint as of this writing — the
  * credentials on file are live (no sandbox pair was available), and a
  * mistake against a charge-creation call spends real money, so this was
- * deliberately never exercised end-to-end. Written faithfully to
- * developer.flutterwave.com's current v4 reference docs; recommend a real
- * sandbox-credentialed test pass before relying on it for actual
- * production traffic — see docs/session-handoff.md §20.
+ * deliberately never exercised end-to-end for any method, card included.
+ * Written faithfully to developer.flutterwave.com's current v4 reference
+ * docs (payment-orchestrator-flow, payment-methods, card, bank-transfer);
+ * recommend a real sandbox-credentialed test pass — one per payment method,
+ * not just card — before relying on any of this for actual production
+ * traffic. See docs/session-handoff.md §20 and its follow-up entry for this
+ * multi-method work.
  */
 
 const TOKEN_URL = 'https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token';
@@ -68,6 +79,37 @@ async function getAccessToken(): Promise<string> {
   return cachedToken.accessToken;
 }
 
+/**
+ * The four payment methods this integration supports, per developer.
+ * flutterwave.com/docs/payment-methods' v4 orchestrator schema. Each is a
+ * distinct `payment_method.type` in the request body — this discriminated
+ * union is what lets createDirectCharge build the right request shape
+ * instead of hard-coding `type: 'card'` the way this file used to.
+ *
+ * Left out deliberately (not because they're hard, but because nothing in
+ * this codebase can validate or exercise them yet): `bank_account` (direct
+ * debit from an already-linked account — a different, mandate-based flow,
+ * not a one-off top-up), `applepay`/`googlepay`/`opay`/`paypal`.
+ */
+export type FlutterwavePaymentMethod =
+  | { type: 'card'; card: { number: string; expiryMonth: string; expiryYear: string; cvv: string; holderName?: string } }
+  // Ghana/Kenya only in this app today (lib/payments/currency.ts's supported
+  // non-NGN currencies) — country_code/network/phone_number per developer.
+  // flutterwave.com/docs/payment-orchestrator-flow's mobile_money example.
+  | { type: 'mobile_money'; mobileMoney: { network: string; countryCode: string; phoneNumber: string } }
+  // Nigeria only — `accountBank` is the payer's own bank's NIP code (e.g.
+  // "044" for Access Bank), per the documented `^\d{3,}$` pattern; see
+  // lib/payments/flutterwave-options.ts for the list surfaced in the form.
+  | { type: 'ussd'; ussd: { accountBank: string } }
+  // "Pay With Bank Transfer" — Flutterwave generates a one-time virtual
+  // account for the payer to transfer the exact amount into. No sensitive
+  // input needed from the payer at charge-creation time (unlike the other
+  // three methods), which is what makes it the simplest non-card option to
+  // offer. `account_type: 'dynamic'` (a fresh account per charge, expiring)
+  // rather than 'static' (a reusable account) — the right choice for a
+  // one-off top-up, not a subscription.
+  | { type: 'bank_transfer' };
+
 export type DirectChargeParams = {
   reference: string; // also used as the idempotency key
   amount: number;
@@ -76,24 +118,72 @@ export type DirectChargeParams = {
   customerName?: { first: string; last: string };
   customerPhone?: { countryCode: string; number: string };
   redirectUrl: string;
-  card: { number: string; expiryMonth: string; expiryYear: string; cvv: string; holderName?: string };
+  paymentMethod: FlutterwavePaymentMethod;
 };
 
 export type DirectChargeResult =
   | { outcome: 'redirect_required'; chargeId: string; redirectUrl: string }
+  // Mobile money's "authorize on your phone", USSD's dial code, and bank
+  // transfer's generated account are all the same shape from our side: no
+  // redirect to send the payer to, just instructions to show them and wait.
+  // Resolves later via the webhook or the billing callback page's
+  // getCharge() poll, same as any other 'pending' payment.
+  | { outcome: 'pending_instructions'; chargeId: string; instructions: string }
   | { outcome: 'success'; chargeId: string }
   | { outcome: 'requires_unsupported_authorization'; chargeId: string; authorizationType: string }
   | { outcome: 'failed'; message: string }
   | { outcome: 'error'; message: string };
 
+function buildPaymentMethodBody(method: FlutterwavePaymentMethod, encryptedCard?: Awaited<ReturnType<typeof encryptCard>>) {
+  switch (method.type) {
+    case 'card':
+      return {
+        type: 'card',
+        card: { ...encryptedCard, ...(method.card.holderName ? { card_holder_name: method.card.holderName } : {}) },
+      };
+    case 'mobile_money':
+      return {
+        type: 'mobile_money',
+        mobile_money: {
+          network: method.mobileMoney.network,
+          country_code: method.mobileMoney.countryCode,
+          phone_number: method.mobileMoney.phoneNumber,
+        },
+      };
+    case 'ussd':
+      return { type: 'ussd', ussd: { account_bank: method.ussd.accountBank } };
+    case 'bank_transfer':
+      return { type: 'bank_transfer', pwbt: { account_type: 'dynamic' } };
+  }
+}
+
 /** POST /orchestration/direct-charges — the single-call orchestrator flow (combines customer + payment method + charge creation), per developer.flutterwave.com/reference/orchestration_direct_charge_post. */
 export async function createDirectCharge(params: DirectChargeParams): Promise<DirectChargeResult> {
   try {
     const accessToken = await getAccessToken();
-    const encryptedCard = await encryptCard(
-      { number: params.card.number, expiryMonth: params.card.expiryMonth, expiryYear: params.card.expiryYear, cvv: params.card.cvv },
-      requireEnv('FLUTTERWAVE_ENCRYPTION_KEY'),
-    );
+
+    const encryptedCard =
+      params.paymentMethod.type === 'card'
+        ? await encryptCard(
+            {
+              number: params.paymentMethod.card.number,
+              expiryMonth: params.paymentMethod.card.expiryMonth,
+              expiryYear: params.paymentMethod.card.expiryYear,
+              cvv: params.paymentMethod.card.cvv,
+            },
+            requireEnv('FLUTTERWAVE_ENCRYPTION_KEY'),
+          )
+        : undefined;
+
+    // Mobile money requires the outer customer.phone to match the payment
+    // method's own phone exactly (developer.flutterwave.com/docs/payment-
+    // orchestrator-flow: "the customer object must include matching phone
+    // details") — derive it from the same source rather than trust two
+    // separate call-site values to agree.
+    const customerPhone =
+      params.paymentMethod.type === 'mobile_money'
+        ? { countryCode: params.paymentMethod.mobileMoney.countryCode, number: params.paymentMethod.mobileMoney.phoneNumber }
+        : params.customerPhone;
 
     const res = await fetch(`${API_BASE}/orchestration/direct-charges`, {
       method: 'POST',
@@ -111,12 +201,9 @@ export async function createDirectCharge(params: DirectChargeParams): Promise<Di
         customer: {
           email: params.customerEmail,
           ...(params.customerName ? { name: { first: params.customerName.first, last: params.customerName.last } } : {}),
-          ...(params.customerPhone ? { phone: { country_code: params.customerPhone.countryCode, number: params.customerPhone.number } } : {}),
+          ...(customerPhone ? { phone: { country_code: customerPhone.countryCode, number: customerPhone.number } } : {}),
         },
-        payment_method: {
-          type: 'card',
-          card: { ...encryptedCard, ...(params.card.holderName ? { card_holder_name: params.card.holderName } : {}) },
-        },
+        payment_method: buildPaymentMethodBody(params.paymentMethod, encryptedCard),
       }),
     });
     const json = await res.json();
@@ -138,6 +225,30 @@ export async function createDirectCharge(params: DirectChargeParams): Promise<Di
     }
     if (nextAction?.type === 'authorize') {
       return { outcome: 'requires_unsupported_authorization', chargeId, authorizationType: nextAction.authorization?.type ?? 'unknown' };
+    }
+    // USSD's dial code, and mobile money's "approve on your phone" prompt —
+    // both carry their customer-facing text in next_action.payment_
+    // instruction.note per developer.flutterwave.com/docs/payment-
+    // orchestrator-flow.
+    if (nextAction?.type === 'payment_instruction' && nextAction.payment_instruction?.note) {
+      return { outcome: 'pending_instructions', chargeId, instructions: nextAction.payment_instruction.note };
+    }
+    // Bank transfer's generated virtual account — per developer.flutterwave.
+    // com/docs/bank-transfer's requires_bank_transfer next_action shape.
+    if (nextAction?.type === 'requires_bank_transfer' && nextAction.requires_bank_transfer) {
+      const rbt = nextAction.requires_bank_transfer;
+      const expiry = rbt.account_expiration_datetime ? ` before ${new Date(rbt.account_expiration_datetime).toLocaleString()}` : '';
+      const instructions = `Transfer ${params.amount} ${params.currency} to account ${rbt.account_number} (${rbt.account_bank_name})${expiry}.${rbt.note ? ` ${rbt.note}` : ''}`;
+      return { outcome: 'pending_instructions', chargeId, instructions };
+    }
+    // A documented v4 outcome for some mobile money networks — declined
+    // rather than guessed at, same reasoning as the unsupported-
+    // authorization branch above.
+    if (nextAction?.type === 'qr_code') {
+      return {
+        outcome: 'error',
+        message: "This mobile money network requires QR-code confirmation, which isn't supported yet — try USSD, card, bank transfer, or a different mobile network.",
+      };
     }
 
     return { outcome: 'error', message: 'Unrecognized response from Flutterwave.' };
@@ -170,7 +281,7 @@ export async function getCharge(chargeId: string): Promise<ChargeStatusResult> {
 // apply cleanly to v4. createCheckout/verifyTransaction are NOT
 // implemented (v4 has no matching operations, see file header) — Flutterwave
 // is deliberately not registered via lib/payments/index.ts's getProvider();
-// the card-charge flow above is called directly from
+// the charge flow above is called directly from
 // app/dashboard/billing/actions.ts instead.
 export const flutterwaveWebhook: Pick<PaymentProvider, 'verifyWebhookSignature' | 'parseWebhookEvent'> = {
   // v4's webhook signs the raw body with HMAC-SHA256 using the dashboard-
@@ -193,6 +304,18 @@ export const flutterwaveWebhook: Pick<PaymentProvider, 'verifyWebhookSignature' 
       const json = JSON.parse(rawBody);
       const data = json.data;
       if (!data?.reference) return null;
+      // The async methods added alongside multi-method support (USSD,
+      // mobile money, bank transfer) all have a real "waiting on the payer"
+      // window a card charge rarely does, and v4 can send an intermediate
+      // webhook while that's happening. Only a final 'success' or an
+      // explicit failure/expiry status is meaningful here — anything else
+      // (e.g. 'pending') is deliberately ignored (returns null) rather than
+      // mapped to 'failed', so a payment mid-flight is never marked failed
+      // just because an intermediate event arrived. lib/payments/confirm.ts's
+      // confirmFlutterwaveChargeByReference (the billing callback page's own
+      // getCharge() poll) is the fallback that eventually resolves it either
+      // way.
+      if (!['success', 'failed', 'cancelled', 'expired'].includes(data.status)) return null;
       return {
         reference: data.reference,
         status: data.status === 'success' ? 'success' : 'failed',
