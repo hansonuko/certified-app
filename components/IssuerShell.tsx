@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { IssuerNavItem } from '@/lib/issuer-nav';
 import { IconButton } from '@/components/ui/IconButton';
+import { signOutAction } from '@/lib/auth/actions';
 
 /**
  * Issuer dashboard shell (docs/design-system.md §8) — structurally mirrors
@@ -71,6 +72,11 @@ export function IssuerShell({
             ☰
           </IconButton>
           <span className="text-sm text-certified-ink">{orgName}</span>
+          <form action={signOutAction}>
+            <button type="submit" className="text-sm text-certified-navy underline">
+              Sign out
+            </button>
+          </form>
         </header>
         <main>{children}</main>
       </div>

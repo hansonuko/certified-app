@@ -6,6 +6,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { StaffRole } from '@/lib/permissions';
 import type { StaffNavItem } from '@/lib/staff-nav';
 import { IconButton } from '@/components/ui/IconButton';
+import { signOutStaffAction } from '@/lib/auth/actions';
 
 const ROLE_LABEL: Record<StaffRole, string> = {
   admin: 'Admin',
@@ -100,6 +101,11 @@ export function StaffShell({
             <span className="rounded-full bg-certified-surface-2 px-3 py-1 text-xs font-medium text-certified-navy">
               {ROLE_LABEL[role]}
             </span>
+            <form action={signOutStaffAction}>
+              <button type="submit" className="text-sm text-certified-navy underline">
+                Sign out
+              </button>
+            </form>
           </div>
         </header>
         <main>{children}</main>
