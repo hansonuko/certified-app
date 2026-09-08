@@ -48,6 +48,13 @@ export async function submitApplication(_prevState: ApplyFormState, formData: Fo
   const identificationFile = formData.get('identification_document');
   const proofOfOperationFile = formData.get('proof_of_operation');
   const declarationAgree = formData.get('declaration_agree') === 'on';
+  // Save-and-continue-later (lib/apply/draft.ts): a resumed session's file
+  // inputs start empty — browsers never let JS restore a file input's
+  // value — so ApplyForm.tsx carries forward whatever was already uploaded
+  // to the draft as these hidden fields. A fresh file in the actual input
+  // always wins if both are present (the applicant chose to replace it).
+  const draftIdentificationPath = (formData.get('draft_identification_path') as string | null)?.trim() || null;
+  const draftProofOfOperationPath = (formData.get('draft_proof_of_operation_path') as string | null)?.trim() || null;
 
   if (!legalName || !displayName) return { error: 'Legal name and display name are required.' };
   if (!ownerFullName || !ownerPhone || !ownerEmail) {
@@ -56,13 +63,14 @@ export async function submitApplication(_prevState: ApplyFormState, formData: Fo
   if (typeof volumeBand !== 'string' || !VOLUME_BANDS.includes(volumeBand as (typeof VOLUME_BANDS)[number])) {
     return { error: 'Choose an expected trainee volume.' };
   }
-  if (!(identificationFile instanceof File) || identificationFile.size === 0) {
+  const hasNewIdentificationFile = identificationFile instanceof File && identificationFile.size > 0;
+  if (!hasNewIdentificationFile && !draftIdentificationPath) {
     return { error: 'An identification document (business/work ID card, government ID, etc.) is required.' };
   }
 
   const isBusiness = applicantType === 'business';
-  const hasProofFile = proofOfOperationFile instanceof File && proofOfOperationFile.size > 0;
-  if (isBusiness && !hasProofFile) {
+  const hasNewProofFile = proofOfOperationFile instanceof File && proofOfOperationFile.size > 0;
+  if (isBusiness && !hasNewProofFile && !draftProofOfOperationPath) {
     return { error: 'A business registration certificate (e.g. CAC in Nigeria) upload is required for Business/Training Centre applicants.' };
   }
 
@@ -73,17 +81,21 @@ export async function submitApplication(_prevState: ApplyFormState, formData: Fo
   }
 
   let identificationPath: string;
-  let proofOfOperationPath: string | null = null;
+  let proofOfOperationPath: string | null = draftProofOfOperationPath;
 
   try {
     // Uploaded in parallel rather than one after the other — each is an
     // independent network round trip to Storage, and there's no reason for
-    // the second to wait on the first finishing.
+    // the second to wait on the first finishing. Only fields with an
+    // actual new file to upload hit Storage at all — a resumed draft's
+    // already-uploaded path (above) is used as-is otherwise.
     const [identificationResult, proofResult] = await Promise.all([
-      uploadApplicationDocument({ supabase, userId: user.id, file: identificationFile, label: 'identification' }),
-      hasProofFile
+      hasNewIdentificationFile
+        ? uploadApplicationDocument({ supabase, userId: user.id, file: identificationFile as File, label: 'identification' })
+        : Promise.resolve(draftIdentificationPath as string),
+      hasNewProofFile
         ? uploadApplicationDocument({ supabase, userId: user.id, file: proofOfOperationFile as File, label: 'proof-of-operation' })
-        : Promise.resolve(null),
+        : Promise.resolve(draftProofOfOperationPath),
     ]);
     identificationPath = identificationResult;
     proofOfOperationPath = proofResult;
@@ -197,6 +209,13 @@ export async function submitApplication(_prevState: ApplyFormState, formData: Fo
     if (applicationError) {
       return { error: `Could not submit your application: ${applicationError.message}` };
     }
+
+    // Save-and-continue-later draft (lib/apply/draft.ts) has done its job —
+    // a real Application now exists, so the scratch row is stale from
+    // here on. Best-effort: a real Application was already created above,
+    // so a failure here should never turn into an error shown to the
+    // applicant — it would just mean a harmless leftover draft row.
+    await supabase.from('application_drafts').delete().eq('user_id', user.id);
   } catch (err) {
     return {
       error:

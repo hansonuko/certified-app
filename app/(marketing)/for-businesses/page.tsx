@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Container, PageHeader, PrimaryLink, SectionHeading, Card } from '@/components/marketing/shared';
+import { Container, PageHeader, SectionHeading, Card } from '@/components/marketing/shared';
 import { FaqAccordion } from '@/components/marketing/FaqAccordion';
 
 export const metadata: Metadata = {
@@ -122,10 +122,12 @@ export default function ForBusinessesPage() {
         <FaqAccordion items={FAQS} />
       </div>
 
-      <div className="flex flex-col items-start gap-4 rounded-card border border-certified-border bg-certified-surface-2 p-8 dark:border-white/10 dark:bg-white/[0.04] dark:backdrop-blur-xl">
-        <p className="font-display text-xl text-certified-navy">Ready to apply?</p>
-        <PrimaryLink href="/apply">Apply as a trainer or business</PrimaryLink>
-      </div>
+      {/* "Ready to apply?" used to be a static card here, shown identically
+          to every visitor including one who'd already applied or was
+          already approved. Removed in favor of the shared footer's own
+          auth/status-aware callout (components/SiteFooter.tsx) rather than
+          duplicated — this page's own hardcoded pitch also stacked oddly
+          close to that footer band. */}
     </Container>
   );
 }

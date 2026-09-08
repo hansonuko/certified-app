@@ -1,9 +1,11 @@
 'use client';
 
-import { useActionState, useState, useEffect, useRef } from 'react';
+import { useActionState, useState, useEffect, useRef, useTransition } from 'react';
 import 'altcha';
 import { submitApplication, type ApplyFormState } from './actions';
+import { saveApplicationDraftAction, uploadDraftDocumentAction } from './draft-actions';
 import { LocationFields } from '@/components/LocationFields';
+import type { ApplicationDraft } from '@/lib/apply/draft';
 
 // Multi-step application wizard (docs/blueprint.md §3.1, docs/build-phases.md
 // Phase 1). All steps stay mounted throughout (toggled with a `hidden`
@@ -15,18 +17,45 @@ import { LocationFields } from '@/components/LocationFields';
 // itself, which is broken UX for a field the applicant can't currently
 // see. Step-level "did you fill this in" checks happen in handleNext
 // instead; the Server Action (actions.ts) is the real validation.
+//
+// Save-and-continue-later (app/(auth)/apply/draft-actions.ts): every Next/
+// Back click snapshots the form's current field values to a draft row,
+// silently, best-effort — no "saved!" toast, no separate button. Returning
+// to /apply while signed in (app/(auth)/apply/page.tsx) resumes right back
+// into this same wizard with those values and step pre-filled. File inputs
+// upload to the draft the moment they're chosen (immediately, not waiting
+// for Next) since a resumed session can never repopulate a file input —
+// only the already-uploaded path can survive that round trip.
 
 const STEPS_BUSINESS = ['type', 'business', 'contact', 'documents', 'review'] as const;
 const STEPS_INDIVIDUAL = ['type', 'business', 'contact', 'documents', 'declaration', 'review'] as const;
 
 type ApplicantType = 'business' | 'individual' | null;
 
-export function ApplyForm() {
+export function ApplyForm({ initialDraft }: { initialDraft: ApplicationDraft | null }) {
   const [state, formAction, pending] = useActionState<ApplyFormState, FormData>(submitApplication, null);
-  const [applicantType, setApplicantType] = useState<ApplicantType>(null);
-  const [stepIndex, setStepIndex] = useState(0);
+  const draftFields = initialDraft?.form_data ?? {};
+  const initialApplicantType: ApplicantType =
+    draftFields.applicant_type === 'business' || draftFields.applicant_type === 'individual' ? draftFields.applicant_type : null;
+  const [applicantType, setApplicantType] = useState<ApplicantType>(initialApplicantType);
+  const initialSteps = initialApplicantType === 'individual' ? STEPS_INDIVIDUAL : STEPS_BUSINESS;
+  const [stepIndex, setStepIndex] = useState(
+    Math.min(Math.max(initialDraft?.step_index ?? 0, 0), initialSteps.length - 1),
+  );
   const [stepError, setStepError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const [, startDraftSave] = useTransition();
+
+  // Already-uploaded draft documents — a resumed session's actual file
+  // <input> starts empty (browsers never restore that), so these paths are
+  // what actually gets submitted (actions.ts's draft_*_path hidden fields)
+  // unless the applicant picks a fresh file to replace one.
+  const [identificationPath, setIdentificationPath] = useState<string | null>(initialDraft?.identification_document_path ?? null);
+  const [proofOfOperationPath, setProofOfOperationPath] = useState<string | null>(initialDraft?.proof_of_operation_path ?? null);
+  const [identificationUploadError, setIdentificationUploadError] = useState<string | null>(null);
+  const [proofUploadError, setProofUploadError] = useState<string | null>(null);
+  const [identificationUploading, setIdentificationUploading] = useState(false);
+  const [proofUploading, setProofUploading] = useState(false);
 
   const steps = applicantType === 'individual' ? STEPS_INDIVIDUAL : STEPS_BUSINESS;
   const currentStep = steps[stepIndex];
@@ -50,9 +79,50 @@ export function ApplyForm() {
     return '';
   }
 
-  function hasFile(name: string): boolean {
+  function hasFile(name: 'identification_document' | 'proof_of_operation'): boolean {
     const el = formRef.current?.elements.namedItem(name);
-    return el instanceof HTMLInputElement && !!el.files && el.files.length > 0;
+    const hasNewFile = el instanceof HTMLInputElement && !!el.files && el.files.length > 0;
+    if (hasNewFile) return true;
+    // A resumed draft's already-uploaded document counts as "has a file"
+    // even though the native input itself is empty.
+    return name === 'identification_document' ? !!identificationPath : !!proofOfOperationPath;
+  }
+
+  function saveDraft(nextStepIndex: number) {
+    if (!formRef.current) return;
+    const snapshot = new FormData(formRef.current);
+    startDraftSave(() => {
+      saveApplicationDraftAction(snapshot, nextStepIndex).catch(() => {
+        // Best-effort — autosave failing silently is the correct behavior
+        // for a convenience feature (see draft-actions.ts's own comment).
+      });
+    });
+  }
+
+  async function handleDraftFileChange(
+    label: 'identification' | 'proof-of-operation',
+    file: File | null,
+  ) {
+    const setPath = label === 'identification' ? setIdentificationPath : setProofOfOperationPath;
+    const setError = label === 'identification' ? setIdentificationUploadError : setProofUploadError;
+    const setUploading = label === 'identification' ? setIdentificationUploading : setProofUploading;
+
+    setError(null);
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.set('file', file);
+      const result = await uploadDraftDocumentAction(label, fd);
+      if ('error' in result) {
+        setError(result.error);
+      } else {
+        setPath(result.path);
+      }
+    } finally {
+      setUploading(false);
+    }
   }
 
   function handleNext() {
@@ -83,17 +153,29 @@ export function ApplyForm() {
         return;
       }
     }
-    setStepIndex((i) => Math.min(i + 1, steps.length - 1));
+    const next = Math.min(stepIndex + 1, steps.length - 1);
+    setStepIndex(next);
+    saveDraft(next);
   }
 
   function handleBack() {
     setStepError(null);
-    setStepIndex((i) => Math.max(i - 1, 0));
+    const prev = Math.max(stepIndex - 1, 0);
+    setStepIndex(prev);
+    saveDraft(prev);
   }
 
   return (
     <form ref={formRef} action={formAction} className="mx-auto flex max-w-lg flex-col gap-6 p-8">
       <input type="hidden" name="applicant_type" value={applicantType ?? ''} />
+      <input type="hidden" name="draft_identification_path" value={identificationPath ?? ''} />
+      <input type="hidden" name="draft_proof_of_operation_path" value={proofOfOperationPath ?? ''} />
+
+      {initialDraft ? (
+        <p className="rounded-control border border-certified-border bg-certified-surface-2 px-3 py-2 text-sm text-certified-muted">
+          Picking up where you left off — your progress is saved automatically as you go.
+        </p>
+      ) : null}
 
       <section className={currentStep === 'type' ? '' : 'hidden'}>
         <h2 className="font-display text-xl text-certified-navy">What kind of applicant are you?</h2>
@@ -123,22 +205,35 @@ export function ApplyForm() {
 
       <section className={currentStep === 'business' ? 'flex flex-col gap-4' : 'hidden'}>
         <h2 className="font-display text-xl text-certified-navy">Tell us about the business</h2>
-        <Field label="Legal / registered name" name="legal_name" />
-        <Field label="Display name (shown publicly)" name="display_name" />
+        <Field label="Legal / registered name" name="legal_name" defaultValue={draftFields.legal_name} />
+        <Field label="Display name (shown publicly)" name="display_name" defaultValue={draftFields.display_name} />
         <Field
           label={`Business registration number, if any (e.g. RC/CAC in Nigeria) ${applicantType === 'individual' ? '(optional — leave blank if none)' : ''}`}
           name="rc_number"
+          defaultValue={draftFields.rc_number}
         />
-        <Field label="Street address" name="address_street" />
-        <LocationFields countryName="address_country" regionName="address_region" localityName="address_locality" />
-        <Field label="Field(s) of training you intend to certify in" name="training_fields" />
-        <TextAreaField label="Short description of what you train" name="training_description" />
+        <Field label="Street address" name="address_street" defaultValue={draftFields.address_street} />
+        <LocationFields
+          countryName="address_country"
+          regionName="address_region"
+          localityName="address_locality"
+          defaultCountry={draftFields.address_country ?? ''}
+          defaultRegion={draftFields.address_region ?? ''}
+          defaultLocality={draftFields.address_locality ?? ''}
+        />
+        <Field label="Field(s) of training you intend to certify in" name="training_fields" defaultValue={draftFields.training_fields} />
+        <TextAreaField label="Short description of what you train" name="training_description" defaultValue={draftFields.training_description} />
         <fieldset>
           <legend className="text-sm text-certified-ink">Expected trainee volume this year</legend>
           <div className="mt-2 flex flex-wrap gap-3">
             {(['0-5', '6-15', '16-29', '30+'] as const).map((band) => (
               <label key={band} className="flex items-center gap-2 rounded-control border border-certified-border px-3 py-2">
-                <input type="radio" name="trainee_volume_band" value={band} />
+                <input
+                  type="radio"
+                  name="trainee_volume_band"
+                  value={band}
+                  defaultChecked={draftFields.trainee_volume_band === band}
+                />
                 {band}
               </label>
             ))}
@@ -148,17 +243,28 @@ export function ApplyForm() {
 
       <section className={currentStep === 'contact' ? 'flex flex-col gap-4' : 'hidden'}>
         <h2 className="font-display text-xl text-certified-navy">Who do we reach out to?</h2>
-        <Field label="Owner full name" name="owner_full_name" />
-        <Field label="Owner phone" name="owner_phone" type="tel" />
-        <Field label="Owner email" name="owner_email" type="email" />
+        <Field label="Owner full name" name="owner_full_name" defaultValue={draftFields.owner_full_name} />
+        <Field label="Owner phone" name="owner_phone" type="tel" defaultValue={draftFields.owner_phone} />
+        <Field label="Owner email" name="owner_email" type="email" defaultValue={draftFields.owner_email} />
       </section>
 
       <section className={currentStep === 'documents' ? 'flex flex-col gap-4' : 'hidden'}>
         <h2 className="font-display text-xl text-certified-navy">Identification & proof of operation</h2>
-        <FileField label="Identification document (business/work ID card, government ID, etc.)" name="identification_document" />
+        <FileField
+          label="Identification document (business/work ID card, government ID, etc.)"
+          name="identification_document"
+          uploadedPath={identificationPath}
+          uploading={identificationUploading}
+          uploadError={identificationUploadError}
+          onFileChange={(file) => handleDraftFileChange('identification', file)}
+        />
         <FileField
           label={`Business registration certificate (e.g. CAC in Nigeria) ${applicantType === 'individual' ? '(optional)' : '(required)'}`}
           name="proof_of_operation"
+          uploadedPath={proofOfOperationPath}
+          uploading={proofUploading}
+          uploadError={proofUploadError}
+          onFileChange={(file) => handleDraftFileChange('proof-of-operation', file)}
         />
       </section>
 
@@ -169,7 +275,7 @@ export function ApplyForm() {
             <DeclarationText />
           </div>
           <label className="flex items-start gap-2 text-sm">
-            <input type="checkbox" name="declaration_agree" className="mt-1" />
+            <input type="checkbox" name="declaration_agree" className="mt-1" defaultChecked={draftFields.declaration_agree === 'on'} />
             I have read and agree to this declaration.
           </label>
         </section>
@@ -217,25 +323,39 @@ export function ApplyForm() {
   );
 }
 
-function Field({ label, name, type = 'text' }: { label: string; name: string; type?: string }) {
+function Field({ label, name, type = 'text', defaultValue }: { label: string; name: string; type?: string; defaultValue?: string }) {
   return (
     <label className="flex flex-1 flex-col gap-1 text-sm text-certified-ink">
       {label}
-      <input name={name} type={type} className="rounded-control border border-certified-border px-3 py-2" />
+      <input name={name} type={type} defaultValue={defaultValue ?? ''} className="rounded-control border border-certified-border px-3 py-2" />
     </label>
   );
 }
 
-function TextAreaField({ label, name }: { label: string; name: string }) {
+function TextAreaField({ label, name, defaultValue }: { label: string; name: string; defaultValue?: string }) {
   return (
     <label className="flex flex-col gap-1 text-sm text-certified-ink">
       {label}
-      <textarea name={name} rows={3} className="rounded-control border border-certified-border px-3 py-2" />
+      <textarea name={name} rows={3} defaultValue={defaultValue ?? ''} className="rounded-control border border-certified-border px-3 py-2" />
     </label>
   );
 }
 
-function FileField({ label, name }: { label: string; name: string }) {
+function FileField({
+  label,
+  name,
+  uploadedPath,
+  uploading,
+  uploadError,
+  onFileChange,
+}: {
+  label: string;
+  name: string;
+  uploadedPath: string | null;
+  uploading: boolean;
+  uploadError: string | null;
+  onFileChange: (file: File | null) => void;
+}) {
   return (
     <label className="flex flex-col gap-1 text-sm text-certified-ink">
       {label}
@@ -243,8 +363,12 @@ function FileField({ label, name }: { label: string; name: string }) {
         name={name}
         type="file"
         accept="image/jpeg,image/png,image/webp,application/pdf"
+        onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
         className="rounded-control border border-certified-border px-3 py-2"
       />
+      {uploading ? <span className="text-xs text-certified-muted">Uploading…</span> : null}
+      {!uploading && uploadedPath ? <span className="text-xs text-certified-success">✓ Uploaded — choose a new file to replace it.</span> : null}
+      {uploadError ? <span className="text-xs text-certified-danger">{uploadError}</span> : null}
     </label>
   );
 }
