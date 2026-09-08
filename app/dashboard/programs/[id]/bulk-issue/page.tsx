@@ -52,8 +52,8 @@ export default async function BulkIssuePage({ params }: { params: Promise<{ id: 
       <p className={credits < 1 ? 'rounded-control border border-certified-warning bg-certified-surface-2 px-4 py-3 text-sm text-certified-ink' : 'text-xs text-certified-muted'}>
         {credits} certificate credit{credits === 1 ? '' : 's'} remaining — one is spent per row that succeeds. Rows
         beyond your balance will fail with a clear reason, not silently skip.{' '}
-        <Link href="/dashboard/billing" className="underline">
-          Manage billing
+        <Link href="/dashboard/billing" className={credits < 1 ? 'font-semibold underline' : 'underline'}>
+          Pay for certificates
         </Link>
         .
       </p>

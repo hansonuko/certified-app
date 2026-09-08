@@ -10,9 +10,15 @@ import { BuyCreditsForm } from './BuyCreditsForm';
 // approval itself stays free forever (CLAUDE.md) — this page is purely
 // about topping up the prepaid balance that gates certificate *issuance*
 // (lib/certificates/issue.tsx), not anything to do with staying approved.
-export default async function BillingPage() {
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ quantity?: string }>;
+}) {
   const { orgId } = await requireApprovedIssuerSession();
   const supabase = await createClient();
+  const { quantity } = await searchParams;
+  const initialQuantity = Math.max(1, Math.floor(Number(quantity)) || 1);
 
   const [{ data: org }, tiers, { data: transactions }] = await Promise.all([
     supabase.from('organizations').select('certificate_credits, address_country').eq('id', orgId).single(),
@@ -48,7 +54,10 @@ export default async function BillingPage() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg text-certified-navy">Buy certificate credits</h2>
+        <h2 className="font-display text-lg text-certified-navy">Pay for certificates</h2>
+        <p className="text-sm text-certified-muted">
+          Every certificate you issue — single or bulk — spends one credit. Top up below with Paystack.
+        </p>
         <table className="w-full max-w-lg text-left text-sm">
           <thead>
             <tr className="border-b border-certified-border text-certified-muted">
@@ -70,7 +79,7 @@ export default async function BillingPage() {
             })}
           </tbody>
         </table>
-        <BuyCreditsForm />
+        <BuyCreditsForm initialQuantity={initialQuantity} />
       </section>
 
       <section className="flex flex-col gap-3">

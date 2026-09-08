@@ -5,9 +5,9 @@ import { initiateCreditPurchase, type BuyCreditsState } from './actions';
 
 const QUICK_AMOUNTS = [1, 10, 20, 50];
 
-export function BuyCreditsForm() {
+export function BuyCreditsForm({ initialQuantity = 20 }: { initialQuantity?: number }) {
   const [state, formAction, pending] = useActionState<BuyCreditsState, FormData>(initiateCreditPurchase, null);
-  const [quantity, setQuantity] = useState(20);
+  const [quantity, setQuantity] = useState(initialQuantity);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -44,12 +44,12 @@ export function BuyCreditsForm() {
       <fieldset className="flex flex-col gap-1 text-sm text-certified-ink">
         <legend className="mb-1">Payment provider</legend>
         <label className="flex items-center gap-2">
-          <input type="radio" name="provider" value="flutterwave" defaultChecked />
-          Flutterwave
-        </label>
-        <label className="flex items-center gap-2">
-          <input type="radio" name="provider" value="paystack" />
+          <input type="radio" name="provider" value="paystack" defaultChecked />
           Paystack
+        </label>
+        <label className="flex items-center gap-2 text-certified-muted">
+          <input type="radio" name="provider" value="flutterwave" disabled />
+          Flutterwave (temporarily unavailable — integration in progress)
         </label>
       </fieldset>
 
@@ -60,7 +60,11 @@ export function BuyCreditsForm() {
         disabled={pending}
         className="self-start rounded-control bg-certified-navy px-4 py-2 text-white disabled:opacity-50"
       >
-        {pending ? 'Starting checkout…' : `Buy ${quantity} credit${quantity === 1 ? '' : 's'}`}
+        {pending
+          ? 'Starting checkout…'
+          : quantity === 1
+            ? 'Pay for certificate'
+            : `Pay for ${quantity} certificates`}
       </button>
     </form>
   );

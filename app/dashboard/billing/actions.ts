@@ -31,6 +31,15 @@ export async function initiateCreditPurchase(_prev: BuyCreditsState, formData: F
   if (typeof providerId !== 'string' || !isProviderId(providerId)) {
     return { error: 'Choose a payment provider.' };
   }
+  if (providerId === 'flutterwave') {
+    // Flutterwave v4 (the credentials on file) turned out to need a raw
+    // card-entry UI + client-side encryption + charge orchestration, not
+    // the hosted-checkout-redirect flow this app is built around — see
+    // docs/session-handoff.md §20. Not wired yet; disabled in the UI too,
+    // this is the server-side half of that (UI hiding alone isn't the
+    // real gate, matching every other enforcement point in this app).
+    return { error: 'Flutterwave is temporarily unavailable — use Paystack for now.' };
+  }
 
   const { data: org } = await supabase
     .from('organizations')
