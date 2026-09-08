@@ -29,7 +29,8 @@ export type StaffAction =
   | 'manage_system_settings' // certificate templates, rate-limit thresholds, integration key status
   | 'rotate_signing_secret'
   | 'view_audit_log' // Admin sees all; Account Manager/Finance see own actions only, see note below
-  | 'override_staff_decision';
+  | 'override_staff_decision'
+  | 'reassign_organization_account_manager'; // move an org to a different Account Manager — Admin only, see docs/roles-permissions.md addendum below
 
 const MATRIX: Record<StaffAction, ReadonlyArray<StaffRole>> = {
   review_applications: ['admin', 'account_manager'],
@@ -50,6 +51,7 @@ const MATRIX: Record<StaffAction, ReadonlyArray<StaffRole>> = {
   rotate_signing_secret: ['admin'],
   view_audit_log: ['admin', 'account_manager', 'finance'],
   override_staff_decision: ['admin'],
+  reassign_organization_account_manager: ['admin'],
 };
 
 // Actions where `can()` returning true is only half the enforcement — the route
@@ -64,6 +66,14 @@ const MATRIX: Record<StaffAction, ReadonlyArray<StaffRole>> = {
 //   view (counts, sums) — never individual certificate/trainee rows.
 // - view_audit_log: Account Manager and Finance must have the query filtered to
 //   `actor_id = <their own id>` — only Admin gets the unfiltered log.
+//
+// review_applications/suspend_organization aren't in this set even though
+// Account Manager's result set for both is also row-scoped now (supabase/
+// migrations/0027: an Account Manager only sees organizations/applications
+// assigned to them, Admin unrestricted) — that scoping is enforced entirely
+// by RLS on the `organizations`/`applications` tables themselves, not by
+// anything the route/query needs to add on top the way the three actions
+// above do, so it doesn't need a reminder here the same way.
 export const SCOPED_ACTIONS: ReadonlySet<StaffAction> = new Set([
   'view_organizations',
   'view_certificates',

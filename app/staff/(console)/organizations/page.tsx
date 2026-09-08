@@ -22,6 +22,14 @@ const STATUS_LABEL: Record<string, string> = {
 // pattern as every other finance-view read in this codebase (lib/reports/
 // finance-data.ts). Both branches share the same route and nav item now;
 // only the query and the rendered columns differ by role.
+//
+// Account Manager "territory" (supabase/migrations/0027): this page's own
+// query is completely unaware of it — organizations_staff_all's RLS policy
+// already returns only the orgs assigned to the requesting Account
+// Manager, so no `.eq('assigned_account_manager_id', ...)` filter is
+// needed here. That's also why there's no "assigned to" column for
+// Account Manager specifically: every row they see is already theirs.
+// Admin sees everyone's, so the column (and who it is) is worth showing.
 export default async function OrganizationsListPage({
   searchParams,
 }: {
@@ -39,7 +47,7 @@ export default async function OrganizationsListPage({
   const supabase = await createClient();
   let query = supabase
     .from('organizations')
-    .select('id, display_name, legal_name, type, status, rc_number, created_at')
+    .select('id, display_name, legal_name, type, status, rc_number, created_at, assigned_account_manager_id')
     .order('created_at', { ascending: false });
 
   if (q) {
@@ -47,6 +55,15 @@ export default async function OrganizationsListPage({
   }
 
   const { data: organizations } = await query;
+
+  const managerIds = Array.from(
+    new Set((organizations ?? []).map((o) => o.assigned_account_manager_id).filter((id): id is string => !!id)),
+  );
+  let managerNames = new Map<string, string>();
+  if (role === 'admin' && managerIds.length > 0) {
+    const { data: managers } = await supabase.from('admin_users').select('id, name').in('id', managerIds);
+    managerNames = new Map((managers ?? []).map((m) => [m.id, m.name]));
+  }
 
   return (
     <main className="flex flex-col gap-4 p-8">
@@ -65,6 +82,7 @@ export default async function OrganizationsListPage({
               <th className="py-2">RC/CAC</th>
               <th className="py-2">Status</th>
               <th className="py-2">Created</th>
+              {role === 'admin' ? <th className="py-2">Assigned AM</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -79,6 +97,11 @@ export default async function OrganizationsListPage({
                 <td className="py-2">{org.rc_number ?? '—'}</td>
                 <td className="py-2">{STATUS_LABEL[org.status] ?? org.status}</td>
                 <td className="py-2">{new Date(org.created_at).toLocaleDateString()}</td>
+                {role === 'admin' ? (
+                  <td className="py-2 text-certified-muted">
+                    {org.assigned_account_manager_id ? (managerNames.get(org.assigned_account_manager_id) ?? '—') : 'Unassigned'}
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>

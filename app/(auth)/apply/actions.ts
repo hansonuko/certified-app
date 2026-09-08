@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { verifyAltchaSolution } from '@/lib/altcha/server';
 import { uploadApplicationDocument } from '@/lib/storage/application-documents';
 import { generateOrgSlug } from '@/lib/slug';
+import { pickAccountManagerForAssignment } from '@/lib/staff/assign-account-manager';
 
 export type ApplyFormState = { error: string } | null;
 
@@ -114,6 +115,13 @@ export async function submitApplication(_prevState: ApplyFormState, formData: Fo
   // success or failure" looks like from the browser. redirect() itself
   // stays outside this try (see below) — it works by throwing a special
   // signal that must reach Next.js's own handling, not get swallowed here.
+  // Account Manager "territory" assignment (supabase/migrations/0027) —
+  // computed once here, outside the retry loop below, since it's the same
+  // pick regardless of which slug attempt succeeds. A public applicant has
+  // no staff role, so this always takes the round-robin path (lib/staff/
+  // assign-account-manager.ts), never the "assign to self" one.
+  const assignedAccountManagerId = await pickAccountManagerForAssignment();
+
   try {
     let orgError: { code?: string; message: string } | null = null;
 
@@ -138,6 +146,7 @@ export async function submitApplication(_prevState: ApplyFormState, formData: Fo
           trainee_volume_band: volumeBand,
           slug: generateOrgSlug(displayName),
           status: 'pending',
+          assigned_account_manager_id: assignedAccountManagerId,
           ...(!isBusiness
             ? {
                 owner_declaration_signed_at: new Date().toISOString(),
