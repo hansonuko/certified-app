@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { Logo } from './Logo';
-import { PrimaryLink, SecondaryLink } from './marketing/shared';
+import { ApplyStatusCallout } from './ApplyStatusCallout';
 
 // Public shell footer (docs/sitemap.md §8: "footer (legal, about, contact)").
-// Static, no data dependency, safe to render on every public page. Carries
-// a compact version of the site's core sales pitch (the homepage carries
-// the full version) since the footer is the one piece of UI every public
-// page shares, marketing or not.
+// The link columns below are static, but the "become an issuer" banner
+// (ApplyStatusCallout) is auth/application-status aware — it used to be a
+// hardcoded pitch shown identically to every visitor regardless of whether
+// they'd already applied or were already an approved issuer, which is what
+// this file carries the single copy of now rather than every page that
+// wants a "ready to apply?" moment hand-rolling its own static version.
 const COLUMNS: { heading: string; links: { href: string; label: string }[] }[] = [
   {
     heading: 'Product',
@@ -42,25 +44,10 @@ const COLUMNS: { heading: string; links: { href: string; label: string }[] }[] =
   },
 ];
 
-export function SiteFooter() {
+export async function SiteFooter() {
   return (
     <footer className="border-t border-certified-border bg-certified-surface transition-colors dark:border-white/10 dark:bg-certified-surface/70 dark:backdrop-blur-xl">
-      <div className="border-b border-certified-border dark:border-white/10">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-12 text-center sm:px-6">
-          <p className="font-display text-2xl text-certified-navy sm:text-3xl">
-            Not yet Certified Africa approved? Apply, get approved, get seen.
-          </p>
-          <p className="max-w-2xl text-certified-muted">
-            Training centres, vocational institutes, and personal trainers who join Certified Africa give every
-            trainee they certify continent wide visibility, a verifiable credential, and a real chance to be found
-            and hired for their skills and portfolio, wherever they are in Africa.
-          </p>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <PrimaryLink href="/apply">Apply to become an issuer</PrimaryLink>
-            <SecondaryLink href="/directory">Browse certified talent</SecondaryLink>
-          </div>
-        </div>
-      </div>
+      <ApplyStatusCallout />
 
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-8 px-4 py-12 sm:px-6 md:grid-cols-5">
         <div className="col-span-2 flex flex-col gap-3 md:col-span-1">

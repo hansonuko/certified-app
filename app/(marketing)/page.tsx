@@ -177,22 +177,12 @@ export default async function HomePage() {
         </Container>
       </section>
 
-      <section className="py-16 sm:py-20">
-        <Container className="flex flex-col items-center gap-5 rounded-card border border-dashed border-certified-gold/40 bg-certified-surface-2 p-10 text-center dark:bg-white/[0.04] dark:backdrop-blur-xl">
-          <p className="font-display text-2xl text-certified-navy sm:text-3xl">
-            Not yet Certified Africa approved? That ends today.
-          </p>
-          <p className="max-w-xl text-certified-muted">
-            Whether you run a vocational institute, a training centre, or train people one on one, applying takes
-            minutes and unlocks continent wide visibility for every person you certify. There is nothing to lose by
-            applying, and a lot your trainees stand to gain.
-          </p>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <PrimaryLink href="/apply">Apply now, it is free</PrimaryLink>
-            <SecondaryLink href="/for-businesses">See what you get</SecondaryLink>
-          </div>
-        </Container>
-      </section>
+      {/* The "become an issuer" pitch used to be hardcoded here too, stacked
+          right above the shared footer's own static version — the same
+          heading appearing twice, and neither aware of whether the visitor
+          had already applied. components/SiteFooter.tsx's ApplyStatusCallout
+          is the single, auth/status-aware instance now; removed here rather
+          than duplicated. */}
     </>
   );
 }
