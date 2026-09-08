@@ -6,6 +6,12 @@
  * (lib/staff-nav.ts) which only grows as each item's real functionality
  * ships. `comingSoon` items still link to a real route — just one that
  * renders a "coming soon" placeholder instead of 404ing.
+ *
+ * Billing carries no comingSoon badge despite its page still just saying
+ * "You're on the Free plan" -- that's the deliberately-finished
+ * placeholder docs/sitemap.md §5 itself specs ("real billing UI ships
+ * with monetization"), not incomplete work the way the others were. The
+ * badge means "not built yet," not "stub by design."
  */
 export type IssuerNavItem = { href: string; label: string; comingSoon?: boolean };
 
@@ -16,10 +22,10 @@ export function getIssuerNavItems(): IssuerNavItem[] {
     { href: '/dashboard/programs', label: 'Programs' },
     { href: '/dashboard/certificates', label: 'Certificates' },
     { href: '/dashboard/trainees', label: 'Trainees' },
-    { href: '/dashboard/directory-profile', label: 'Directory Profile', comingSoon: true },
+    { href: '/dashboard/directory-profile', label: 'Directory Profile' },
     { href: '/dashboard/messages', label: 'Messages' },
-    { href: '/dashboard/settings', label: 'Settings', comingSoon: true },
-    { href: '/dashboard/billing', label: 'Billing', comingSoon: true },
-    { href: '/dashboard/help', label: 'Help', comingSoon: true },
+    { href: '/dashboard/settings', label: 'Settings' },
+    { href: '/dashboard/billing', label: 'Billing' },
+    { href: '/dashboard/help', label: 'Help' },
   ];
 }
