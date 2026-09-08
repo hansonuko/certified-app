@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Container, PageHeader, PrimaryLink, Card } from '@/components/marketing/shared';
+import { Container, PageHeader, Card } from '@/components/marketing/shared';
+import { ApplyCtaButton } from '@/components/ApplyCtaButton';
 
 export const metadata: Metadata = {
   title: 'Pricing',
@@ -7,7 +8,7 @@ export const metadata: Metadata = {
     'Becoming an approved Certified Africa issuer is free, forever. Certificates are ₦1,000 per credit, with volume discounts.',
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
   return (
     <Container className="flex flex-col gap-12 py-16 sm:py-20">
       <PageHeader eyebrow="Pricing" title="Free to join. Pay only for what you issue." />
@@ -27,7 +28,7 @@ export default function PricingPage() {
         <p className="text-sm text-certified-muted">
           Requires an approved application, see <a className="underline" href="/for-businesses">for training centres &amp; trainers</a>.
         </p>
-        <PrimaryLink href="/apply">Apply as a trainer or business</PrimaryLink>
+        <ApplyCtaButton>Apply as a trainer or business</ApplyCtaButton>
       </Card>
 
       <Card className="flex max-w-xl flex-col gap-4">

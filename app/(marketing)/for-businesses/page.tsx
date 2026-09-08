@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Container, PageHeader, SectionHeading, Card } from '@/components/marketing/shared';
 import { FaqAccordion } from '@/components/marketing/FaqAccordion';
+import { getApplyStatus } from '@/lib/auth/apply-status';
 
 export const metadata: Metadata = {
   title: 'For training centres & trainers',
@@ -35,13 +36,23 @@ const FAQS = [
   },
 ];
 
-export default function ForBusinessesPage() {
+export default async function ForBusinessesPage() {
+  // The default subtitle presupposes the reader hasn't applied yet — same
+  // lib/auth/apply-status.ts check as everywhere else this page's "you're
+  // not yet approved" framing shouldn't be shown to someone who already
+  // has applied (or is already approved).
+  const applyStatus = await getApplyStatus();
+  const hasNotApplied = applyStatus.state === 'anonymous' || applyStatus.state === 'no-org';
+  const subtitle = hasNotApplied
+    ? 'If your training outfit is not yet Certified Africa approved, this is the page that changes that. Apply, get approved, and every artisan or professional you train gets a shot at continent wide visibility.'
+    : "Here's what being a Certified Africa approved issuer gets your organization, from issuance to the public directory.";
+
   return (
     <Container className="flex flex-col gap-16 py-16 sm:py-20">
       <PageHeader
         eyebrow="For training centres, institutions & trainers"
         title="Your trainees deserve to be seen, verified, and hired, not just handed a certificate"
-        subtitle="If your training outfit is not yet Certified Africa approved, this is the page that changes that. Apply, get approved, and every artisan or professional you train gets a shot at continent wide visibility."
+        subtitle={subtitle}
       />
 
       <div className="flex flex-col gap-6">

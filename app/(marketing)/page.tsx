@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { GoldSeal } from '@/components/GoldSeal';
 import { Container, PrimaryLink, SecondaryLink, SectionHeading, Card } from '@/components/marketing/shared';
 import { getPublicStats } from '@/lib/stats/public-stats';
+import { ApplyCtaButton } from '@/components/ApplyCtaButton';
 
 export const metadata: Metadata = {
   title: 'Certified Africa, every certificate verifiable in seconds',
@@ -136,7 +137,7 @@ export default async function HomePage() {
                 once, get approved, and every artisan, technician, or professional you certify gains a continent
                 wide, verifiable presence, refined enough to be taken seriously and visible enough to be found.
               </p>
-              <PrimaryLink href="/apply">Apply to become an issuer</PrimaryLink>
+              <ApplyCtaButton>Apply to become an issuer</ApplyCtaButton>
             </Card>
           </div>
         </Container>
