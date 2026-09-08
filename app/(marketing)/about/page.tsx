@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { GoldSeal } from '@/components/GoldSeal';
-import { Container, PageHeader, SectionHeading, PrimaryLink } from '@/components/marketing/shared';
+import { Container, PageHeader, SectionHeading } from '@/components/marketing/shared';
+import { ApplyCtaButton } from '@/components/ApplyCtaButton';
 
 export const metadata: Metadata = {
   title: 'About',
   description: 'Certified Africa is a trust infrastructure layer for training providers, built by Sun Media Limited.',
 };
 
-export default function AboutPage() {
+export default async function AboutPage() {
   return (
     <Container className="flex flex-col gap-12 py-16 sm:py-20">
       <PageHeader eyebrow="About" title="Trust infrastructure for training, built for Africa" />
@@ -64,7 +65,7 @@ export default function AboutPage() {
           Tell them about Certified Africa. Every approved issuer gives their trainees a continent wide, verifiable
           presence they cannot get anywhere else.
         </p>
-        <PrimaryLink href="/apply">Apply to become an issuer</PrimaryLink>
+        <ApplyCtaButton>Apply to become an issuer</ApplyCtaButton>
       </div>
     </Container>
   );

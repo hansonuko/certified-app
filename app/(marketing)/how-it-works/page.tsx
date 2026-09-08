@@ -1,12 +1,20 @@
 import type { Metadata } from 'next';
 import { Container, PageHeader, PrimaryLink, SecondaryLink, SectionHeading, Card } from '@/components/marketing/shared';
+import { getApplyStatus } from '@/lib/auth/apply-status';
 
 export const metadata: Metadata = {
   title: 'How it works',
   description: 'How Certified Africa reviews issuers, generates certificates, and makes every one verifiable in seconds.',
 };
 
-export default function HowItWorksPage() {
+export default async function HowItWorksPage() {
+  // "Ready to get started?" below only makes sense for someone who hasn't
+  // applied yet — same lib/auth/apply-status.ts check as the shared footer
+  // callout (components/ApplyStatusCallout.tsx), applied here since this
+  // section's heading itself (not just its button) is stale once you've
+  // already applied.
+  const applyStatus = await getApplyStatus();
+  const hasNotApplied = applyStatus.state === 'anonymous' || applyStatus.state === 'no-org';
   return (
     <Container className="flex flex-col gap-16 py-16 sm:py-20">
       <PageHeader
@@ -83,13 +91,15 @@ export default function HowItWorksPage() {
         </p>
       </div>
 
-      <div className="flex flex-col items-start gap-4 rounded-card border border-certified-border bg-certified-surface-2 p-8 dark:border-white/10 dark:bg-white/[0.04] dark:backdrop-blur-xl">
-        <p className="font-display text-xl text-certified-navy">Ready to get started?</p>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <PrimaryLink href="/apply">Apply as a trainer or business</PrimaryLink>
-          <SecondaryLink href="/directory">Browse the directory</SecondaryLink>
+      {hasNotApplied ? (
+        <div className="flex flex-col items-start gap-4 rounded-card border border-certified-border bg-certified-surface-2 p-8 dark:border-white/10 dark:bg-white/[0.04] dark:backdrop-blur-xl">
+          <p className="font-display text-xl text-certified-navy">Ready to get started?</p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <PrimaryLink href="/apply">Apply as a trainer or business</PrimaryLink>
+            <SecondaryLink href="/directory">Browse the directory</SecondaryLink>
+          </div>
         </div>
-      </div>
+      ) : null}
     </Container>
   );
 }
