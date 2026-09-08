@@ -149,11 +149,16 @@ None of this touches Paystack, which remains the higher-confidence, already-live
 
 **Still genuinely unverified, flagged plainly:** the host/status/next-action fixes above are corrected from cross-referenced, independently-corroborated third-party v4 integrations found on GitHub — not from Flutterwave's own docs, which never state the production host plainly — but **no real charge has yet succeeded end-to-end** to confirm the fix actually works, only that it no longer fails in the specific way it just did. The very next real payment attempt (card, mobile money, or USSD) is the real test.
 
+**Deployed for live testing, still not merged**: user asked to get this onto Vercel so it could be tested live rather than only on `localhost`. Deployed **from this feature branch directly** (`npx vercel --prod`) — deploying and merging are separate Vercel/git concerns, and CLAUDE.md's "never merge without explicit approval" is about the GitHub PR, not the Vercel alias. `https://certified-app-lime.vercel.app` now serves this branch's code (everything through PR #54, i.e. also #48–#53 which hadn't been redeployed since §22 — see §2's own update). Smoke-checked: `/`, `/login`, `/staff/login`, `/verify`, `/pricing` all 200; `/dashboard/billing` 307 (expected — redirects an unauthenticated request to login); both webhook routes 405 on GET (expected, POST-only). `main` on GitHub is unchanged — PR #54 is still open, waiting on explicit merge approval, same as before this deploy.
+
+**Before the next live payment attempt, double-check**: migration `0031` (`payments.provider_charge_id`) has never been confirmed applied (§2) — `initiateFlutterwaveCharge` writes that column unconditionally after every charge attempt via a Supabase call whose error isn't checked, so if `0031` is missing, the charge id silently fails to save and `confirmFlutterwaveChargeByReference` can never resolve the payment (it'll sit "pending" forever, visible in `/staff/finance/wallets`' stuck-payments queue, not lost, but confusing). Worth confirming applied before spending real money on the next test.
+
 **Still open:**
 1. The very next live payment attempt is the real verification this fix needs — watch it closely.
-2. A real sandbox-credentialed test pass remains the ideal (per §20's original recommendation) but has never been available; live testing with real money remains the only option so far.
-3. Not merged — **PR #54 is open, waiting on explicit merge approval**, per usual.
-4. Everything else from §20/§23's still-open lists (Flutterwave webhook secret unset, `CRON_SECRET` unset, migration `0035` still pending) is unchanged by this section.
+2. Confirm migration `0031` is applied (see above) before that attempt.
+3. A real sandbox-credentialed test pass remains the ideal (per §20's original recommendation) but has never been available; live testing with real money remains the only option so far.
+4. Not merged — **PR #54 is open, waiting on explicit merge approval**, per usual, even though it's now deployed to the production Vercel alias.
+5. Everything else from §20/§23's still-open lists (Flutterwave webhook secret unset, `CRON_SECRET` unset, migration `0035` still pending) is unchanged by this section.
 
 ---
 
@@ -228,9 +233,15 @@ separate, explicit step per `CLAUDE.md`'s free-tier discipline, not
 something that happens automatically on merge (auto-deploy-on-push is
 disabled by design). Propose it, don't just do it, next time this comes up.
 **Update (§22/§23):** #31–#42 *were* redeployed along with #44–#46/#47
-(§22's own redeploy). **Everything from #48 onward (through #53, `main` at
-`4a93fe9`) is merged but not yet in a fresh deploy** — same gap, recurring;
-propose it rather than assume it next time.
+(§22's own redeploy). **Update (§24):** the user asked directly for a fresh
+deploy to test the Flutterwave fix live — deployed from the still-open PR
+#54 branch (not `main`), so production now also carries everything through
+#48–#53 that had been sitting merged-but-undeployed, plus #54 itself ahead
+of its own merge. **`main` on GitHub is still only at `4a93fe9` (PR #53)** —
+the Vercel alias and `main` have diverged (alias is ahead); once PR #54 is
+actually merged, `main` will match what's already live, not the other way
+around. Worth remembering next time this doc says "merged but not deployed"
+— check the alias, not just `main`, before assuming what's live.
 
 **Supabase project**: `wvcvzeybvloamkkghckp` (hosted, not local — confirmed
 again this session that the Supabase CLI flat out can't run on this
