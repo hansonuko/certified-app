@@ -67,10 +67,14 @@ export async function submitPlatformContactRequest(
  * CLAUDE.md rule #5) and is never sent back to the browser in this
  * response or any other.
  *
- * No message content is persisted — this is a pure relay, not an inbox.
- * The in-memory rate limiter (lib/rate-limit/contact-limiter.ts) is the
- * only state this keeps, same "mock until Upstash is configured" shape as
- * lib/rate-limit/verify-limiter.ts.
+ * The relay email is still the actual notification; a contact_requests
+ * row (supabase/migrations/0029) is also written afterward so /dashboard/
+ * messages has something durable to read for organization-targeted
+ * requests — additive, not a replacement, and its own failure doesn't
+ * fail this action (the email already went out by that point). The
+ * in-memory rate limiter (lib/rate-limit/contact-limiter.ts) is separate
+ * state, same "mock until Upstash is configured" shape as lib/rate-limit/
+ * verify-limiter.ts.
  */
 export async function submitContactRequest(_prev: ContactFormState, formData: FormData): Promise<ContactFormState> {
   const targetType = formData.get('target_type');
@@ -148,6 +152,25 @@ export async function submitContactRequest(_prev: ContactFormState, formData: Fo
     await sendEmail({ to: recipientEmail, replyTo: senderEmail, ...template });
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Could not send your message. Please try again later.' };
+  }
+
+  // Durable record for /dashboard/messages (supabase/migrations/0029) —
+  // additive alongside the email above, which stays the actual
+  // notification path. A failure here shouldn't fail the whole request
+  // from the sender's point of view (the email already went out
+  // successfully); logged instead, same "don't fail the user-facing
+  // action over a secondary write" pattern as this codebase's audit_log
+  // inserts elsewhere.
+  const { error: persistError } = await admin.from('contact_requests').insert({
+    target_type: targetType,
+    target_id: targetId,
+    sender_name: senderName,
+    sender_email: senderEmail,
+    sender_phone: senderPhone,
+    message,
+  });
+  if (persistError) {
+    console.error('Failed to persist contact_requests row:', persistError.message);
   }
 
   return { success: true };
