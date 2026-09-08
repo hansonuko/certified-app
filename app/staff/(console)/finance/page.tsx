@@ -35,6 +35,9 @@ export default async function FinancePage() {
           <Link href="/staff/finance/billing" className="text-sm text-certified-navy underline">
             Billing →
           </Link>
+          <Link href="/staff/finance/wallets" className="text-sm text-certified-navy underline">
+            Wallets →
+          </Link>
         </div>
       </div>
 

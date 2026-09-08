@@ -54,7 +54,12 @@ export default async function FinanceBillingPage() {
       </div>
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-display text-lg text-certified-navy">Certificate credits sold (all-time)</h2>
+        <div className="flex items-baseline justify-between">
+          <h2 className="font-display text-lg text-certified-navy">Certificate credits sold (all-time)</h2>
+          <Link href="/staff/finance/wallets" className="text-sm text-certified-navy underline">
+            View per-org wallets →
+          </Link>
+        </div>
         <p className="text-2xl text-certified-navy">{creditsSold.toLocaleString()} credits</p>
         {revenueByCurrency.size > 0 ? (
           <ul className="text-sm text-certified-muted">

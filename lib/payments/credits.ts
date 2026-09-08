@@ -24,6 +24,27 @@ export async function refundCertificateCredit(admin: SupabaseClient, orgId: stri
   if (error) console.error('refund_certificate_credit failed:', error.message);
 }
 
+/**
+ * Staff-only manual balance correction (goodwill refund, support-desk
+ * fix) — the caller (app/staff/(console)/finance/wallets/actions.ts) must
+ * have already checked can(role, 'manage_billing') before reaching this;
+ * the SECURITY DEFINER function itself trusts its caller, same as every
+ * other function here.
+ */
+export async function adjustCertificateCreditsManual(
+  admin: SupabaseClient,
+  params: { orgId: string; quantity: number; note: string; staffId: string },
+): Promise<{ balance: number } | { error: string }> {
+  const { data, error } = await admin.rpc('adjust_certificate_credits_manual', {
+    p_org_id: params.orgId,
+    p_quantity: params.quantity,
+    p_note: params.note,
+    p_staff_id: params.staffId,
+  });
+  if (error) return { error: error.message };
+  return { balance: data as number };
+}
+
 export async function addCertificateCredits(
   admin: SupabaseClient,
   params: {

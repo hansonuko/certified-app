@@ -25,11 +25,13 @@ import { addCertificateCredits } from './credits';
  * allowed to move payments.status out of 'pending' or call
  * add_certificate_credits().
  */
+export type ConfirmResult = { status: 'success' | 'failed' | 'pending' | 'not_found' | 'error' | 'mismatch'; message?: string };
+
 export async function confirmPaymentByReference(
   admin: SupabaseClient,
   provider: 'flutterwave' | 'paystack',
   reference: string,
-): Promise<{ status: 'success' | 'failed' | 'pending' | 'not_found' | 'error'; message?: string }> {
+): Promise<ConfirmResult> {
   const { data: payment } = await admin
     .from('payments')
     .select('id, org_id, status, quantity, unit_price, discount_percent, amount, currency, purpose')
@@ -59,10 +61,7 @@ export async function confirmPaymentByReference(
  * app/dashboard/billing/actions.ts). Shares the same idempotency and
  * amount/currency-check guarantees via applyConfirmedSuccess below.
  */
-export async function confirmFlutterwaveChargeByReference(
-  admin: SupabaseClient,
-  reference: string,
-): Promise<{ status: 'success' | 'failed' | 'pending' | 'not_found' | 'error'; message?: string }> {
+export async function confirmFlutterwaveChargeByReference(admin: SupabaseClient, reference: string): Promise<ConfirmResult> {
   const { data: payment } = await admin
     .from('payments')
     .select('id, org_id, status, quantity, unit_price, discount_percent, amount, currency, purpose, provider_charge_id')
@@ -104,7 +103,10 @@ export async function confirmPaymentFromWebhookEvent(
     return;
   }
 
-  await applyConfirmedSuccess(admin, payment, event.amount, event.currency);
+  const result = await applyConfirmedSuccess(admin, payment, event.amount, event.currency);
+  if (result.status === 'mismatch') {
+    console.error(`Webhook for payment ${payment.id} (${provider}) hit an amount/currency mismatch — see applyConfirmedSuccess's own log line above.`);
+  }
 }
 
 type PendingPaymentRow = {
@@ -124,21 +126,27 @@ async function applyConfirmedSuccess(
   payment: PendingPaymentRow,
   reportedAmount: number,
   reportedCurrency: string,
-): Promise<{ status: 'success' | 'failed'; message?: string }> {
+): Promise<ConfirmResult> {
   // Never trust the provider's reported amount/currency blindly — compare
   // against what this checkout was actually created for. A mismatch here
   // would mean either a provider-side rounding surprise or, worse, a
   // tampered/replayed webhook — either way, don't credit, and leave the
-  // payment in a state a human can investigate rather than silently
-  // marking it 'failed' (which would let the payer retry and get charged
-  // twice for the same intent).
+  // payment row genuinely `pending` in the DB (not silently marked
+  // 'failed') so a human can investigate. Returning a distinct 'mismatch'
+  // status here — not 'failed' — matters: a real successful charge that
+  // trips this guard on a false positive (e.g. a units-format assumption
+  // that turns out wrong) must never be told "payment failed" to the payer,
+  // which would risk them paying a second time while the first charge sits
+  // uncredited. /staff/finance/wallets surfaces payments stuck in this
+  // state so staff can manually credit once the real charge is confirmed
+  // out of band.
   const amountMatches = Math.abs(reportedAmount - Number(payment.amount)) < 1;
   const currencyMatches = reportedCurrency === payment.currency;
   if (!amountMatches || !currencyMatches) {
     console.error(
       `Payment ${payment.id}: reported ${reportedAmount} ${reportedCurrency} does not match expected ${payment.amount} ${payment.currency} — not crediting, left pending for manual review.`,
     );
-    return { status: 'failed', message: 'Amount/currency mismatch — left pending for manual review.' };
+    return { status: 'mismatch', message: "We couldn't automatically confirm this payment — it hasn't been marked as failed, so please don't pay again. Contact support and we'll verify and credit it manually." };
   }
 
   if (payment.purpose === 'certificate_credits' && payment.quantity) {

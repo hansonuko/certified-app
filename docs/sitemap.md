@@ -96,6 +96,7 @@ Legend: 🌐 public/no-auth · 🔒 authenticated · role tags where relevant (*
 | `/staff/finance` | Usage-vs-free-tier dashboard | ✅ | ❌ | ✅ |
 | `/staff/finance/reports` | Exportable financial/usage reports | ✅ | ❌ | ✅ |
 | `/staff/finance/billing` | Certificate-credit pricing tiers + currency rates (live-editable), plan distribution, credits-sold stats | ✅ | ❌ | ✅ |
+| `/staff/finance/wallets` | Every org's certificate-credit balance + ledger, manual credit/debit adjustment (audit-logged), stuck-pending-payment review queue | ✅ | ❌ | ✅ |
 | `/staff/team` | Manage staff accounts (invite, role, suspend) | ✅ | ❌ | ❌ |
 | `/staff/audit-log` | Full audit trail | ✅ (all) | own actions | own actions |
 | `/staff/settings` | System settings (templates, rate limits, integrations) | ✅ | ❌ | ❌ |
