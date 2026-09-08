@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { DirectoryFilters } from './DirectoryFilters';
+import { DirectoryTabs } from '@/components/directory/DirectoryTabs';
+import { sanitizeSearchTerm } from '@/lib/directory/sanitize-search-term';
 import { INTERACTIVE_CARD_CLASSNAME } from '@/components/ui/Card';
 
 // docs/build-phases.md Phase 5, docs/blueprint.md §3.5/§7. Public,
@@ -53,15 +55,6 @@ type TraineeCard = {
   locality: string | null;
   credentials: Credential[];
 };
-
-function sanitizeSearchTerm(raw: string): string {
-  // Strips characters with syntactic meaning inside a Supabase/PostgREST
-  // .or() filter string (comma separates conditions, parens aren't valid
-  // inside a bare value) — not a security boundary, PostgREST still
-  // parameterizes the actual comparison value either way, this just keeps
-  // the filter string well-formed so a stray "," doesn't 400 the query.
-  return raw.replace(/[,()]/g, '').trim();
-}
 
 function groupByTrainee(rows: DirectoryRow[]): TraineeCard[] {
   const byTrainee = new Map<string, TraineeCard>();
@@ -143,6 +136,8 @@ export default async function DirectoryPage({
         <h1 className="font-display text-3xl text-certified-navy">Find a certified professional</h1>
         <p className="text-certified-muted">Search certified individuals by skill, location, or issuing organization.</p>
       </div>
+
+      <DirectoryTabs active="trainees" />
 
       <DirectoryFilters issuers={issuers ?? []} defaults={params} />
 
