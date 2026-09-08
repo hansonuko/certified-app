@@ -6,7 +6,7 @@ import { getMobileMoneyNetworksForCountry, USSD_BANKS } from '@/lib/payments/flu
 
 const QUICK_AMOUNTS = [1, 10, 20, 50];
 
-type FlutterwaveMethod = 'card' | 'mobile_money' | 'ussd' | 'bank_transfer';
+type FlutterwaveMethod = 'card' | 'mobile_money' | 'ussd';
 
 export function BuyCreditsForm({ initialQuantity = 20, orgCountry = null }: { initialQuantity?: number; orgCountry?: string | null }) {
   const [quantity, setQuantity] = useState(initialQuantity);
@@ -92,10 +92,10 @@ export function BuyCreditsForm({ initialQuantity = 20, orgCountry = null }: { in
           <input type="hidden" name="flutterwave_method" value={flutterwaveMethod} />
 
           {flutterwaveInstructions ? (
-            // A charge is in flight (USSD dial code, mobile money approval
-            // prompt, or a generated bank transfer account) — hide the
-            // method form entirely rather than let a second submit fire a
-            // second charge for the same top-up while the first is pending.
+            // A charge is in flight (USSD dial code or mobile money
+            // approval prompt) — hide the method form entirely rather than
+            // let a second submit fire a second charge for the same top-up
+            // while the first is pending.
             <div className="rounded-control border border-certified-navy bg-certified-navy/5 p-3 text-sm text-certified-ink">
               <p className="font-medium">Complete your payment</p>
               <p>{flutterwaveInstructions}</p>
@@ -115,10 +115,6 @@ export function BuyCreditsForm({ initialQuantity = 20, orgCountry = null }: { in
                   <label className="flex items-center gap-2">
                     <input type="radio" checked={flutterwaveMethod === 'card'} onChange={() => setFlutterwaveMethod('card')} />
                     Card
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="radio" checked={flutterwaveMethod === 'bank_transfer'} onChange={() => setFlutterwaveMethod('bank_transfer')} />
-                    Bank transfer
                   </label>
                   {isNigeria ? (
                     <label className="flex items-center gap-2">
@@ -193,13 +189,6 @@ export function BuyCreditsForm({ initialQuantity = 20, orgCountry = null }: { in
                     <input name="card_holder_name" autoComplete="cc-name" className="rounded-control border border-certified-border px-3 py-2" />
                   </label>
                 </div>
-              ) : null}
-
-              {flutterwaveMethod === 'bank_transfer' ? (
-                <p className="text-sm text-certified-muted">
-                  We&apos;ll generate a one-time bank account number for you to transfer {quantity === 1 ? 'the' : 'this'} amount into —
-                  shown on the next screen after you submit.
-                </p>
               ) : null}
 
               {flutterwaveMethod === 'ussd' ? (

@@ -37,7 +37,7 @@ async function quoteAndRecordPendingPurchase(
   orgId: string,
   quantity: number,
   provider: ProviderId,
-  paymentMethod?: 'card' | 'mobile_money' | 'ussd' | 'bank_transfer',
+  paymentMethod?: 'card' | 'mobile_money' | 'ussd',
 ): Promise<PendingPurchaseQuote | { error: string }> {
   const { data: org } = await supabase
     .from('organizations')
@@ -118,7 +118,7 @@ export async function initiateCreditPurchase(_prev: BuyCreditsState, formData: F
  * fields are validated exactly as before; mobile money/USSD are checked
  * against the fixed option lists in lib/payments/flutterwave-options.ts so a
  * tampered or stale client value can't reach Flutterwave as an unrecognized
- * network/bank code. Bank transfer needs no payer-supplied fields at all.
+ * network/bank code.
  */
 function readFlutterwaveMethod(formData: FormData): { method: FlutterwavePaymentMethod } | { error: string } {
   const type = (formData.get('flutterwave_method') as string | null) ?? 'card';
@@ -155,10 +155,6 @@ function readFlutterwaveMethod(formData: FormData): { method: FlutterwavePayment
     return { method: { type: 'ussd', ussd: { accountBank } } };
   }
 
-  if (type === 'bank_transfer') {
-    return { method: { type: 'bank_transfer' } };
-  }
-
   return { error: 'Select a payment method.' };
 }
 
@@ -168,17 +164,17 @@ function methodMatchesCurrency(method: FlutterwavePaymentMethod, currency: strin
     return (method.mobileMoney.countryCode === '233' && currency === 'GHS') || (method.mobileMoney.countryCode === '254' && currency === 'KES');
   }
   if (method.type === 'ussd') return currency === 'NGN';
-  return true; // card and bank transfer aren't currency-restricted in this app
+  return true; // card isn't currency-restricted in this app
 }
 
 /**
  * Flutterwave v4's direct-charge flow (lib/payments/flutterwave.ts) —
  * dispatches to whichever payment method the issuer picked (card, mobile
- * money, USSD, or bank transfer). Card details are collected on our own
- * page and encrypted here, server-side, immediately: this action never
- * logs raw card fields, never stores them (not even transiently in a DB
- * row), and discards them from memory as soon as createDirectCharge
- * returns. The other three methods carry no card-equivalent secret.
+ * money, or USSD). Card details are collected on our own page and
+ * encrypted here, server-side, immediately: this action never logs raw
+ * card fields, never stores them (not even transiently in a DB row), and
+ * discards them from memory as soon as createDirectCharge returns. The
+ * other two methods carry no card-equivalent secret.
  */
 export async function initiateFlutterwaveCharge(_prev: BuyCreditsState, formData: FormData): Promise<BuyCreditsState> {
   const { orgId } = await requireApprovedIssuerSession();
@@ -196,7 +192,7 @@ export async function initiateFlutterwaveCharge(_prev: BuyCreditsState, formData
   if ('error' in quote) return quote;
 
   if (!methodMatchesCurrency(method, quote.currency)) {
-    return { error: 'That payment method isn\'t available for your organization\'s billing currency — try card or bank transfer instead.' };
+    return { error: "That payment method isn't available for your organization's billing currency — try card instead." };
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';

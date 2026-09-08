@@ -57,7 +57,7 @@ export default async function BillingPage({
         <h2 className="font-display text-lg text-certified-navy">Pay for certificates</h2>
         <p className="text-sm text-certified-muted">
           Every certificate you issue — single or bulk — spends one credit. Top up below with Paystack or Flutterwave
-          (card, mobile money, USSD, or bank transfer).
+          (card, mobile money, or USSD).
         </p>
         <table className="w-full max-w-lg text-left text-sm">
           <thead>

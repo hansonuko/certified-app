@@ -22,11 +22,18 @@ public directory; **PR #52** hid those same apply CTAs sitewide for anyone
 who's already applied; **PR #53** added a light/dark theme toggle to both
 dashboard shells. See §23 for the consolidated recap of #46–53 (§21's own
 entry already covers #46 in full). **This session**: Flutterwave's checkout
-was card-only — added mobile money, USSD, and bank transfer as real
-alternatives, branch `flutterwave-multi-method-payments`, **PR #54, not yet
-merged** — see §24. `main` builds clean (`tsc`, `npm run build`, `npm test` —
-20/20) as of `4a93fe9` (PR #53); PR #54's branch builds equally clean on top
-of it.
+was card-only — added mobile money and USSD as real alternatives (a third
+option, bank transfer, was attempted, hit a real live error, and was
+removed — see below), branch `flutterwave-multi-method-payments`, **PR #54,
+not yet merged** — see §24. **Then the user tested it live** and hit exactly
+the kind of bug this section exists to catch: a real `Cannot POST
+/orchestration/direct-charges` error, which turned out to mean the whole
+file had been hitting the wrong Flutterwave host since the original card-
+only implementation — see §24's update for the full diagnosis (wrong API
+host, wrong charge-status string, and bank_transfer isn't a requestable
+payment method at all). `main` builds clean (`tsc`, `npm run build`,
+`npm test` — 20/20) as of `4a93fe9` (PR #53); PR #54's branch builds equally
+clean on top of it, now with these fixes included.
 
 ---
 
@@ -116,23 +123,37 @@ This doc went stale here — these landed in an earlier session and were never w
 
 Picked up from a direct user request: Flutterwave's checkout was card-only — quite literally labeled "Flutterwave (card)" in the UI (§20) — while Paystack gets card/bank-transfer/USSD "for free" via its own hosted checkout page. Added the other v4 direct-charge payment methods so Flutterwave is a real second option, not a second card processor. Also cleaned up the two now-superseded local/remote `docs-session-handoff-*` branches this session started from (see this update's own header) — `docs-session-handoff`/`-2`/`-3` were already merged (routine local cleanup), `docs-session-handoff-4` and `docs-session-handoff-nav-and-redeploy` were stale, unmerged, and fully superseded by what actually landed in `main` (confirmed via `git diff` against each before deleting, not assumed) — deleted locally; remote deletion was denied by the environment's own permission classifier as an outward-facing action, so those two still exist on `origin` for the user to remove if wanted.
 
-**What shipped:**
-- **`lib/payments/flutterwave.ts`**: `DirectChargeParams`'s hard-coded `card` field replaced with a discriminated `FlutterwavePaymentMethod` union (`card` / `mobile_money` / `ussd` / `bank_transfer`) — `createDirectCharge` now builds the request's `payment_method` body per type instead of always emitting `type: 'card'`. A new `pending_instructions` outcome carries USSD's dial code, mobile money's "approve on your phone" prompt, or bank transfer's generated virtual-account details back to the caller (Flutterwave's `next_action.type` values `payment_instruction`/`requires_bank_transfer`, researched fresh against developer.flutterwave.com since nothing in-repo had ever modeled non-card methods). A mobile money network that responds with `qr_code` confirmation (a real, documented v4 outcome) is declined with a clear message, same "flag rather than guess" reasoning already applied to card's unsupported PIN/OTP case.
-- **A real correctness fix surfaced by this work**: `parseWebhookEvent` was mapping *any* non-`'success'` status to `'failed'`, including an intermediate `'pending'`. Harmless for card (resolves mostly synchronously via redirect), but a real risk for the three new async methods, which have a genuine multi-minute "waiting on the payer" window — an intermediate pending webhook could have wrongly flipped a payment to `failed` before the payer even finished dialing/transferring. Now only `success`/`failed`/`cancelled`/`expired` produce an event; anything else is ignored, leaving `confirmFlutterwaveChargeByReference`'s own `getCharge()` poll (billing callback page) as the resolution path, same as before this fix for any status it didn't recognize.
+**What shipped (first pass):**
+- **`lib/payments/flutterwave.ts`**: `DirectChargeParams`'s hard-coded `card` field replaced with a discriminated `FlutterwavePaymentMethod` union — `createDirectCharge` now builds the request's `payment_method` body per type instead of always emitting `type: 'card'`. A new `pending_instructions` outcome carries USSD's dial code or mobile money's "approve on your phone" prompt back to the caller. A mobile money network that responds with `qr_code` confirmation (a real, documented v4 outcome) is declined with a clear message, same "flag rather than guess" reasoning already applied to card's unsupported OTP/PIN case.
+- **A real correctness fix surfaced by this work**: `parseWebhookEvent` was mapping *any* non-success status to `'failed'`, including an intermediate `'pending'`. Harmless for card (resolves mostly synchronously via redirect), but a real risk for async methods with a genuine multi-minute "waiting on the payer" window — an intermediate pending webhook could have wrongly flipped a payment to `failed` before the payer even finished dialing. Now only a final success or an explicit failure/void/expiry status produces an event; anything else is ignored, leaving `confirmFlutterwaveChargeByReference`'s own `getCharge()` poll (billing callback page) as the resolution path.
 - **`lib/payments/flutterwave-options.ts`** (new): the one source of truth for mobile money networks (Ghana MTN/Vodafone/AirtelTigo, Kenya M-Pesa — the only two non-NGN currencies this app already bills in, `lib/payments/currency.ts`) and Nigerian USSD bank codes (10 major banks) — used by both `BuyCreditsForm.tsx`'s `<select>`s and the server action's own validation, so a tampered/stale client value is rejected server-side rather than trusted.
 - **`app/dashboard/billing/actions.ts`**: `initiateFlutterwaveCharge` now dispatches on a `flutterwave_method` field instead of always reading card fields, validates each method's fields against the option lists above, and cross-checks mobile money/USSD against the org's own server-computed billing currency (not the client's method choice) before ever calling Flutterwave.
-- **`app/dashboard/billing/BuyCreditsForm.tsx`**: a "Pay via" selector nested under Flutterwave (Card / Bank transfer always shown; USSD only for Nigerian orgs; Mobile money only for Ghana/Kenya orgs), with a per-method sub-form. Once an async charge returns `pending_instructions`, the form is replaced entirely by an instructions panel (not just an error message) — deliberately prevents a stray resubmit from firing a second charge for the same top-up while the first is still in flight.
-- **`supabase/migrations/0036`**: additive `payments.payment_method` column (card/mobile_money/ussd/bank_transfer, null for Paystack) — for support/reconciliation only, nothing downstream reads it yet. **Not yet applied to the hosted project.**
+- **`app/dashboard/billing/BuyCreditsForm.tsx`**: a "Pay via" selector nested under Flutterwave, with a per-method sub-form. Once an async charge returns `pending_instructions`, the form is replaced entirely by an instructions panel (not just an error message) — deliberately prevents a stray resubmit from firing a second charge for the same top-up while the first is still in flight.
+- **`supabase/migrations/0036`**: additive `payments.payment_method` column — for support/reconciliation only, nothing downstream reads it yet. **Applied to the hosted project by the user** (2026-09-08, same day). Its check constraint still lists `bank_transfer` as an allowed value even after the update below removed it as a *requestable* method — left as-is since it's an already-applied migration (this repo's migrations are append-only history) and `bank_transfer` can still appear as a *response* `payment_method_details.type` per Flutterwave's own schema, just never as something this app requests directly.
 
-**Verified:** `npx tsc --noEmit`, `npm run build`, `npm test` (20/20) all clean. Dev server started (`npm run dev`, clean `.next` rebuild) and left running for the user's own manual testing.
+**First-pass verification:** `npx tsc --noEmit`, `npm run build`, `npm test` (20/20) all clean. Dev server started and left running for the user's own manual testing — exactly the kind of testing that caught the real bug below.
 
-**Not verified, flagged plainly rather than presented as more solid than it is:** exactly the same caveat as the original card flow (§20) — this is written faithfully against developer.flutterwave.com's current v4 reference docs (`payment-orchestrator-flow`, `payment-methods`, `bank-transfer`), but **no sandbox credentials have ever been available for this integration**, so **none of the four payment methods, card included, have ever been exercised against a live Flutterwave endpoint**. The bank-transfer request shape in particular (`type: 'bank_transfer'`, a `pwbt: { account_type: 'dynamic' }` object) was the least consistently documented of the three new methods across Flutterwave's own pages during research — worth the closest look in a real sandbox pass.
+---
+
+**Update, same day — a real live bug, found and fixed.** The user applied migration `0036` and tried a real Flutterwave payment (bank transfer) and got back `Unexpected token 'C', "Cannot POS"... is not valid JSON` — a `JSON.parse` failure, which only happens when a server response body isn't JSON at all. Root-caused rather than patched around:
+
+1. **The response body actually started with `Cannot POST /orchestration/direct-charges`** — a bare routing-layer 404, the classic Express default-handler text. `createDirectCharge`'s unconditional `res.json()` had no way to surface that raw text; it just threw an opaque `SyntaxError` that bubbled up as the caller's error message. **Fixed**: a new `parseJsonResponse()` helper reads the body as text first and only then attempts `JSON.parse`, returning the actual raw text (truncated) as the error when parsing fails — used in `getAccessToken`, `createDirectCharge`, and `getCharge`, so any future non-JSON response is diagnosable immediately instead of producing another cryptic parse error.
+2. **The real root cause of the 404 itself**: `API_BASE` was `https://api.flutterwave.com` — the **v3** host. v4's orchestrator endpoints (this whole file) live on a completely different host, `https://f4bexperience.flutterwave.com`, confirmed by cross-referencing several independent third-party v4 integrations on GitHub (Flutterwave's own public docs never state the production host plainly — only a sandbox host, `developersandbox-api.flutterwave.com`, and a templated `{{ENVIRONMENT}}.flutterwave.com` placeholder with no resolved value). **This means every payment method — card included — had been hitting a route that doesn't exist since the very first v4 rewrite** (docs/session-handoff.md §20); bank transfer wasn't a special case, it was just the first one anyone actually tried live. Fixed by changing `API_BASE`.
+3. **`bank_transfer` is not a valid `payment_method.type` for creating a charge.** The same cross-referenced schema shows POST /orchestration/direct-charges' `payment_method` union is `card | bank_account | mobile_money | opay | applepay | googlepay | ussd` — **bank_transfer isn't in it**. `requires_bank_transfer` is a real v4 *response* `next_action.type`, which is presumably where the idea that it was requestable came from, but there's no way to ask for it directly through this endpoint. **Removed** as a selectable method in `FlutterwavePaymentMethod`, `BuyCreditsForm.tsx`, and `actions.ts` — Flutterwave now offers card, mobile money, and USSD (three real alternatives to card-only, not four; the fourth was never real). The `requires_bank_transfer` next_action parsing is kept defensively in case any other method ever falls back to it.
+4. **A charge's status field is `succeeded`, not `success`.** Same schema cross-reference — v4 charge statuses are `succeeded | pending | failed | voided`. `createDirectCharge` and `getCharge` were both comparing against `'success'`, meaning **no charge of any kind, including card, would have ever been correctly recognized as successful** even once the host fix above lets a request actually reach the server. Fixed both call sites, plus the webhook parser's own status check.
+5. **OTP/PIN next_action types were being checked as a single generic `'authorize'` type that doesn't exist in v4** — the real schema splits it into `requires_otp` and `requires_pin`. Fixed the check (still declines to handle either, same as before — just detects them correctly now).
+
+None of this touches Paystack, which remains the higher-confidence, already-live-verified path (§20).
+
+**Verified after this fix:** `npx tsc --noEmit`, `npm run build`, `npm test` (20/20) all clean.
+
+**Still genuinely unverified, flagged plainly:** the host/status/next-action fixes above are corrected from cross-referenced, independently-corroborated third-party v4 integrations found on GitHub — not from Flutterwave's own docs, which never state the production host plainly — but **no real charge has yet succeeded end-to-end** to confirm the fix actually works, only that it no longer fails in the specific way it just did. The very next real payment attempt (card, mobile money, or USSD) is the real test.
 
 **Still open:**
-1. A real sandbox-credentialed test pass — one per payment method, not just card — before any of this serves real traffic, per §20's existing recommendation, now with three more methods needing the same treatment.
-2. Migration `0036` needs the usual hosted-project hand-paste.
-3. Not merged — **PR #54 is open, waiting on explicit merge approval**, per usual. Not deployed.
-4. Everything else from §20/§23's still-open lists (Flutterwave webhook secret unset, `CRON_SECRET` unset, migrations `0034`–`0036` all pending, PRs since #47 not yet redeployed) is unchanged by this section.
+1. The very next live payment attempt is the real verification this fix needs — watch it closely.
+2. A real sandbox-credentialed test pass remains the ideal (per §20's original recommendation) but has never been available; live testing with real money remains the only option so far.
+3. Not merged — **PR #54 is open, waiting on explicit merge approval**, per usual.
+4. Everything else from §20/§23's still-open lists (Flutterwave webhook secret unset, `CRON_SECRET` unset, migration `0035` still pending) is unchanged by this section.
 
 ---
 
@@ -179,7 +200,7 @@ Picked up from a direct user request: Flutterwave's checkout was card-only — q
 | — Public directory: organization/issuer search | ✅ merged | #51 | `/directory/organizations`. See §23 |
 | — Hide apply CTAs sitewide once already applied | ✅ merged | #52 | Extends #50's footer fix to homepage/pricing/about/how-it-works/for-businesses. See §23 |
 | — Dashboard light/dark theme toggle | ✅ merged | #53 | Both `IssuerShell`/`StaffShell` top bars. See §23 |
-| — Flutterwave multi-method payments | 🔲 open, pending review | #54 | Mobile money, USSD, bank transfer alongside card. Migration 0036 (not yet applied). See §24 |
+| — Flutterwave multi-method payments | 🔲 open, pending review | #54 | Mobile money, USSD alongside card (bank transfer attempted, hit a live bug, removed). Migration 0036 applied. Also fixed: wrong v4 API host, wrong charge-status string. See §24 |
 
 47 PRs merged, 1 open (#54, this session's own work) as of this writing,
 plus a stale unrelated docs-only PR (#23) nobody's acted on. `main` builds
@@ -244,13 +265,19 @@ African address columns), `applications`, `training_programs` (+
 (private), `org-brand-assets`, `certificates`, `trainee-photos` (all three
 public).
 
-**Update (§20–§24):** migrations `0030`–`0034` are confirmed applied (user
-applied `0030`/`0032`/`0033` directly, per §20/§21; `0034`'s guard-trigger
-fix is also applied, per §23). `0031` (Flutterwave `provider_charge_id`),
-`0035` (`application_drafts`), and `0036` (this session's `payments.
-payment_method`) have **not** been confirmed applied — flag before relying
-on any Flutterwave charge-status lookup, `/apply` save-and-continue, or the
-new payment-method reporting column against the hosted project.
+**Update (§20–§24):** migrations `0030`, `0032`–`0034`, and `0036` are
+confirmed applied (user applied `0030`/`0032`/`0033` directly, per §20/§21;
+`0034`'s guard-trigger fix is also applied, per §23; `0036`'s `payments.
+payment_method` column applied same-day, per §24). `0031` (Flutterwave
+`provider_charge_id`) and `0035` (`application_drafts`) have **not** been
+confirmed applied — flag before relying on a Flutterwave charge-status
+lookup (`getCharge()` reads `provider_charge_id`, added by `0031`) or
+`/apply` save-and-continue against the hosted project. **Given `0031` is
+unconfirmed, double-check it's actually applied before the next live
+Flutterwave payment attempt** — `initiateFlutterwaveCharge` writes
+`provider_charge_id` unconditionally after every charge creation attempt,
+so a missing column there would itself throw before the payment could ever
+be confirmed.
 
 **Lesson learned this session, worth repeating**: `CREATE OR REPLACE
 VIEW`/`FUNCTION` can only *append* new output columns — it cannot rename or
