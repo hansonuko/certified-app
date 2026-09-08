@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { IssuerNavItem } from '@/lib/issuer-nav';
 import { IconButton } from '@/components/ui/IconButton';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { signOutAction } from '@/lib/auth/actions';
 
 /**
@@ -72,6 +73,7 @@ export function IssuerShell({
             ☰
           </IconButton>
           <span className="text-sm text-certified-ink">{orgName}</span>
+          <ThemeToggle />
           <form action={signOutAction}>
             <button type="submit" className="text-sm text-certified-navy underline">
               Sign out
