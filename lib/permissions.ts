@@ -30,7 +30,8 @@ export type StaffAction =
   | 'rotate_signing_secret'
   | 'view_audit_log' // Admin sees all; Account Manager/Finance see own actions only, see note below
   | 'override_staff_decision'
-  | 'reassign_organization_account_manager'; // move an org to a different Account Manager — Admin only, see docs/roles-permissions.md addendum below
+  | 'reassign_organization_account_manager' // move an org to a different Account Manager — Admin only, see docs/roles-permissions.md addendum below
+  | 'create_organization'; // manually add + auto-approve an org, bypassing the applicant-submitted /apply flow — Admin + Account Manager, mirrors review_applications' role split
 
 const MATRIX: Record<StaffAction, ReadonlyArray<StaffRole>> = {
   review_applications: ['admin', 'account_manager'],
@@ -52,6 +53,7 @@ const MATRIX: Record<StaffAction, ReadonlyArray<StaffRole>> = {
   view_audit_log: ['admin', 'account_manager', 'finance'],
   override_staff_decision: ['admin'],
   reassign_organization_account_manager: ['admin'],
+  create_organization: ['admin', 'account_manager'],
 };
 
 // Actions where `can()` returning true is only half the enforcement — the route
