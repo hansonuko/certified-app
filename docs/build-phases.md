@@ -160,6 +160,32 @@ Once all keys are collected, fill `.env.local` from `.env.example`. Generate `AD
 
 ---
 
+## Phase 11 — Monetization & Payments
+
+**Goal:** the platform's first real revenue mechanism, added well after v1 launch scope per a direct user request rather than a `docs/blueprint.md` §9 phase — three separate flows, built and reviewed one at a time, not as one giant change. `docs/blueprint.md` §10 listed "paid tiers for issuers" as explicitly deferred; this phase is that deferral ending, one flow at a time. **Foundational, non-negotiable across all three flows** (now also `CLAUDE.md` rules #11–12): organization registration, KYC review, and approval stay free forever — payment only ever attaches to usage or upgrades, never to becoming or remaining an approved issuer.
+
+### Item 1 — Certificate credits (Flow A: organizations pay per certificate issued)
+
+**Status:** scoped and built (branch `monetization-flow-a-certificate-credits`), pending review.
+
+**Prompt (as refined through scoping):**
+> Organizations pay ₦1,000 (or its local-currency equivalent elsewhere in Africa) per certificate issued. Rather than a checkout redirect per certificate — unworkable against bulk/CSV cohort issuance (Phase 7), which can issue hundreds in one job — implement this as **prepaid certificate credits**: an org tops up a wallet via Flutterwave or Paystack, and one credit is spent atomically per certificate at issuance (single-entry or bulk), gated in the one shared `issueCertificate()` function (`lib/certificates/issue.tsx`) both call. Tiered volume discount on top-ups: 1 credit at full price, 2–19 at 30% off, 20+ at 50% off (20 credits = ₦10,000) — discount *percentages* must be editable by Admin/Finance at any time without a redeploy (a DB-backed table, not a code constant), per explicit user request. Every top-up/spend/refund/manual adjustment is recorded in a ledger (`certificate_credit_transactions`), with `organizations.certificate_credits` as a cached running balance mutated only through dedicated `SECURITY DEFINER` Postgres functions — never a direct client or owner write (extend the existing owner-write guard trigger, per the lesson `docs/session-handoff.md` §19's security fix already flagged: check every new `organizations` column against it). Currency "equivalent amount" is resolved via a small, also admin-editable rate table anchored to NGN, covering the four priority countries (`lib/geo/africa.ts`'s Nigeria/Ghana/Kenya/South Africa) plus a USD fallback — not a live FX feed. Integrate both Flutterwave and Paystack behind one provider-agnostic interface (`lib/payments/provider.ts`), with webhook routes that verify the provider's signature before trusting anything in the payload, check the reported amount/currency against what checkout was actually created for, and are idempotent against duplicate delivery — plus a page-view fallback verify on the post-checkout callback page, mirroring Phase 7's Cron-or-page-view resilience pattern for the exact same reason (a webhook that's slow or never arrives shouldn't leave a real payment stuck unconfirmed). Price is always computed server-side from the submitted quantity — never trusted from the client.
+
+**What this does *not* cover** — deliberately out of scope for this item, tracked as separate future items below, not silently folded in:
+- Flow B (Premium subscription unlocking custom certificate templates) and Flow C (trainee-paid contact-unlock) — scoped in the same conversation but not yet built; each needs its own review/merge checkpoint.
+- True recurring/subscription billing (not needed for a one-time top-up model).
+- A live FX-rate feed (the manual rate table is the deliberate v1 shortcut, same shape as the directory's priority-country location data).
+
+### Item 2 — Certified Premium (Flow B: ₦15,000/month, unlocks custom certificate templates) — not yet built
+
+Turning this on means actually building the custom-certificate-upload feature `docs/blueprint.md` §10 lists as deferred (file validation, an overlay-positioning UI for where the QR/gold seal go on an issuer-uploaded design, a mandatory staff review step before first use — `CLAUDE.md` rule #2's mandatory, fixed-position, non-configurable gold seal has to hold on custom templates too, which is the real engineering constraint here), not just gating an existing capability behind a plan flag. Recommended for v1: manual monthly renewal via a checkout link (`organizations.premium_expires_at`, a daily check reverting `plan` to `'free'` once lapsed) rather than true recurring billing — existing certificates on a lapsed org's custom template stay valid regardless (`CLAUDE.md` rule #4), only issuing *new* ones on that template is blocked until renewal.
+
+### Item 3 — Trainee contact-unlock (Flow C: ₦1,000, one-time, unlocks directory contactability) — not yet built
+
+Layers on top of Phase 8's existing free, email-link self-claim (an NDPA data-rights mechanism, kept free deliberately — paywalling it would be a compliance problem, not just a product one). The payment buys active `open_to_hire`/contact-reveal promotion, not the claim itself. The alternative claim path described in scoping (phone number + training/certificate registration number, for a trainee who never got or lost the claim email) needs its own identity verification — recommended: SMS OTP — before anything paid unlocks, to avoid a stranger paying to switch on someone else's contactability without their consent (a direct conflict with `docs/blueprint.md` §6's consent-first design otherwise). SMS OTP is new infrastructure this stack doesn't have yet (Resend is email-only) — needs its own provider decision (Termii, Africa's Talking) and its own free-tier-discipline treatment.
+
+---
+
 ## After every phase, without exception
 
 1. Commit incrementally as you build the phase — not one commit at the end.

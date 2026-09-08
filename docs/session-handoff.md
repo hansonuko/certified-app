@@ -5,18 +5,46 @@ verified, what's still open. Read this alongside `docs/build-phases.md`
 (the plan) before starting a new phase; this doc is the "what actually
 happened" complement to that plan.
 
-**Last updated:** 2026-09-08 — since the previous update: a user-requested
-staff-tooling batch (staff account deactivate + permissions matrix #34,
-Account Manager org assignment/visibility restriction #35, manual org
-entry #36), a security fix that batch's own review surfaced (#37), all
-five of the issuer dashboard's `ComingSoon` placeholders replaced with
-real pages (#38–#41), and a sign-out button for both dashboard shells
-(#42). Migrations `0026`–`0029` applied live and fully re-verified
-against the hosted project afterward (disposable test accounts, all
-cleaned up) — see §19 for the full recap, this paragraph is deliberately
-short. **39 PRs merged, 0 open** from this session's own work, plus one
-stale unrelated docs-only PR (#23) nobody's acted on. `main` builds clean
-(`tsc`, `npm run build`) as of `d2ad534`.
+**Last updated:** 2026-09-08 — since the previous update: the platform's
+first monetization work, Monetization Flow A (certificate credits), scoped
+across three flows in conversation but only Flow A approved and built —
+migration `0030` (not yet applied to the hosted project), the whole
+`lib/payments/` abstraction (Flutterwave + Paystack), issuance gating,
+real `/dashboard/billing` and `/staff/finance/billing` pages, two webhook
+routes, two new `CLAUDE.md` non-negotiable rules, and a public `/pricing`
+copy fix. See §20 for the full recap — on branch
+`monetization-flow-a-certificate-credits`, **not yet a PR, not yet
+merged, migration not yet live-verified**. Everything before this is
+unchanged from the previous update: **39 PRs merged, 0 open** from that
+session's own work, plus one stale unrelated docs-only PR (#23) nobody's
+acted on. `main` builds clean (`tsc`, `npm run build`) as of `d2ad534`;
+this branch also builds clean on top of it (`tsc`, `npm run build`,
+`npm test` — 20/20 — all verified before this update).
+
+---
+
+## 20. Monetization Flow A — certificate credits (branch `monetization-flow-a-certificate-credits`, pending review)
+
+Picked up from a direct user request (not a `docs/build-phases.md` phase that existed before this session): the platform's first real monetization. Scoped as three flows in one conversation — org pays per certificate issued (Flow A), a Premium subscription unlocking custom templates (Flow B), trainee-paid contact-unlock (Flow C) — but **only Flow A was approved to build**; Flows B and C are scoped (docs/build-phases.md Phase 11 items 2–3, docs/blueprint.md §11.9's "Next to Decide") but not started. Full scoping conversation and the design decisions it produced are captured in Phase 11 of `docs/build-phases.md` — this section is the "what was actually built" complement to that.
+
+**What shipped:**
+- **Migration `0030_certificate_credits.sql`**: `organizations.certificate_credits` (cached balance) + `certificate_credit_transactions` (the ledger — source of truth), `payments` (one row per checkout attempt, provider-agnostic via a `purpose` column), `certificate_credit_pricing_tiers` (admin/finance-editable discount tiers — 1 credit 0%, 2–19 at 30%, 20+ at 50%) and `payment_currency_rates` (NGN-anchored, admin/finance-editable, seeded with **placeholder rates flagged as needing verification**, no live FX feed). Three `SECURITY DEFINER` functions (`spend_certificate_credit`, `refund_certificate_credit`, `add_certificate_credits`) are the only path anything mutates the balance through — extended the existing owner-write guard trigger (`guard_organization_status_columns`, hardened for AM-assignment in #37) to also block `certificate_credits`, proactively applying the exact lesson that trigger's own history already flagged rather than waiting for a follow-up security-fix PR. **Not yet applied to the hosted Supabase project** — needs hand-pasting into the SQL Editor same as every migration before it, then the usual disposable-test-account verification pass, before this can be exercised live.
+- **`lib/payments/`** (new): `provider.ts` (interface), `flutterwave.ts`/`paystack.ts` (adapters — plain `fetch`, no new npm dependency), `pricing.ts` (tier lookup + server-side quote computation — price is *always* computed from quantity server-side, never trusted from the client), `currency.ts` (NGN → local-currency resolution), `credits.ts` (thin RPC wrappers), `confirm.ts` (the shared "apply a confirmed payment" logic — idempotent, checks the provider's reported amount/currency against what checkout was created for before crediting anything, same "one function, two triggers" shape as `lib/bulk-issuance/processor.ts`'s `advanceJob()`).
+- **Issuance gating**: `lib/certificates/issue.tsx`'s `issueCertificate()` — the one function both single-entry and bulk issuance already call — now spends one credit atomically before rendering anything, and refunds it if the certificate ultimately fails to get created (a hard DB error or a render/upload exception), so a failed attempt never costs a credit. Both `/dashboard/programs/[id]/issue` and `/dashboard/programs/[id]/bulk-issue` show the current balance and a clear "top up" prompt when it's zero.
+- **`/dashboard/billing`**: real page now (was the "You're on the Free plan" placeholder) — balance, tiered pricing table, quick-buy (1/10/20/50) + custom-quantity top-up form with a Flutterwave/Paystack choice, recent ledger activity. **`/dashboard/billing/callback`** (new): post-checkout landing page that confirms the payment itself as a fallback if the webhook is slow/absent — same resilience pattern as the bulk-issuance job status page's opportunistic `advanceJob()` call.
+- **`/staff/finance/billing`**: real pricing/currency config now (was the "no paid plans yet" placeholder) — live-editable discount tiers and currency rates (the user's explicit ask: adjustable "at any given time," not a code constant), each edit audit-logged, plus all-time credits-sold/revenue stats and the pre-existing plan-distribution table, unchanged.
+- **`app/api/webhooks/{flutterwave,paystack}`** (new): signature-verified (rejects anything that doesn't check out before touching the payload), idempotent, delegate to `lib/payments/confirm.ts`.
+- **`CLAUDE.md` rules #11–12** (new, non-negotiable): org registration/KYC/approval free forever, payment secrets/webhook verification held to the exact same discipline as the certificate-signing secret (rule #3), certificate credits mutated only via the dedicated functions.
+- **`docs/blueprint.md`** §4 (data model), §10 (Deferred — "paid tiers for issuers" now partially begun), §11 (new confirmed-decision #9); **`docs/roles-permissions.md`** (a note that `manage_billing` now has real substance); **`docs/sitemap.md`** (both billing pages' descriptions); **`app/(marketing)/pricing`** (rewritten — the old copy promised "$0/month, nothing moves behind a paywall retroactively," which Flow A would have made false; now states registration/approval stay free forever and certificate issuance costs ₦1,000/credit with the same tiers, flagged as an important consistency fix rather than left stale).
+
+**Verified:** `npx tsc --noEmit`, `npm run build`, `npm test` (20/20) all clean. **Not yet verified against the hosted Supabase project** (migration not yet applied) and **not yet tested against real Flutterwave/Paystack sandbox checkouts** — both are the natural next steps once the migration is pasted in, following the same disposable-test-org verification pattern every prior phase used.
+
+**Still open, not silently dropped:**
+1. Migration `0030` needs to be applied to the hosted project, then live-verified (a disposable test org: top up in sandbox mode on both providers, confirm the ledger/balance/webhook path, confirm the owner-write guard actually blocks a direct `certificate_credits` update, then clean up).
+2. Sandbox `FLUTTERWAVE_SECRET_KEY`/`FLUTTERWAVE_WEBHOOK_HASH`/`PAYSTACK_SECRET_KEY` aren't in `.env.local` yet — needed before any real checkout can be exercised, even in test mode.
+3. `payment_currency_rates`' seeded GHS/KES/ZAR/USD rates are explicitly placeholder values (the migration's own comment flags this) — worth a real check before relying on them for an actual non-Nigerian charge.
+4. Flows B and C (docs/build-phases.md Phase 11 items 2–3) are scoped, not built — Flow B in particular un-defers `docs/blueprint.md` §10's custom-certificate-upload feature, which is real net-new scope, not just a payment gate.
+5. Not deployed — this is on a feature branch, not even merged to `main` yet, let alone redeployed to Vercel.
 
 ---
 
@@ -56,6 +84,7 @@ stale unrelated docs-only PR (#23) nobody's acted on. `main` builds clean
 | — Dashboard: Help + Billing badge | ✅ merged | #40 | Help links to `/contact`/`/faq`; dropped a stale `comingSoon` badge off Billing (page was already correct) |
 | — Dashboard: Messages inbox | ✅ merged | #41 | New `contact_requests` table — the contact/hire relay was email-only before. Migration 0029. See §19 |
 | — Sign-out button, both dashboard shells | ✅ merged | #42 | Closed a gap flagged since #22 |
+| 11, item 1 — Monetization Flow A (certificate credits) | 🟡 branch ready, no PR yet | — | Migration `0030` not yet applied live. See §20 |
 
 39 PRs merged, 0 open (from this session's own work) as of this writing,
 plus a stale unrelated docs-only PR (#23) nobody's acted on. `main` builds

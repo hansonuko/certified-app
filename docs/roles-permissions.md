@@ -35,6 +35,8 @@ Three internal (staff) roles, following the standard split used across most trus
 
 Anything not explicitly granted above is denied by default — enforce this as a deny-by-default check in middleware, not an allow-list you remember to update per new feature.
 
+"Manage billing... plan/pricing config" got its first real substance in 2026-09 (docs/build-phases.md Phase 11 item 1, Monetization Flow A): `/staff/finance/billing`'s certificate-credit discount tiers and currency rates are both Admin/Finance-editable at any time (no redeploy needed), each edit audit-logged per §3 below.
+
 ## 3. Enforcement notes (for implementation)
 
 - Enforce at **three layers**, not just one: Supabase RLS policies (DB-level), a server-side permission-check helper (`lib/permissions.ts`, used in every API route/server action), and UI-level hiding of nav items/actions the role can't use (UX only — never the actual security boundary).
