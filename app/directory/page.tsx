@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { DirectoryFilters } from './DirectoryFilters';
+import { INTERACTIVE_CARD_CLASSNAME } from '@/components/ui/Card';
 
 // docs/build-phases.md Phase 5, docs/blueprint.md §3.5/§7. Public,
 // unauthenticated, reads directory_listings_view (supabase/migrations/0018)
@@ -185,7 +186,7 @@ function TraineeDirectoryCard({ card }: { card: TraineeCard }) {
   return (
     <Link
       href={`/directory/trainee/${card.traineeId}`}
-      className="flex flex-col gap-3 rounded-card border border-certified-border bg-certified-surface p-5 transition hover:border-certified-gold hover:shadow-sm"
+      className={`flex flex-col gap-3 p-5 ${INTERACTIVE_CARD_CLASSNAME}`}
     >
       <div className="flex items-center gap-3">
         {card.photoUrl ? (
