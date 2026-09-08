@@ -101,6 +101,25 @@ footer {
     color 200ms ease-out;
 }
 
+/*
+ * App-wide focus-visible fallback (docs/design-system.md §7's "every
+ * hoverable element must also be reachable and clearly indicated via
+ * keyboard", §10's "visible focus rings, 2px gold outline, offset 2px").
+ * The marketing site already hand-rolls this exact treatment per element via
+ * Tailwind's focus-visible: utilities (components/marketing/shared.tsx,
+ * components/SiteHeaderClient.tsx, components/SiteFooter.tsx,
+ * components/ThemeToggle.tsx, components/marketing/FaqAccordion.tsx) — this
+ * native-CSS rule is the fallback for everywhere that doesn't yet
+ * (directory, issuer dashboard, staff console), so keyboard focus is
+ * visible app-wide without waiting on a full per-component retrofit.
+ * Elements that already carry the Tailwind utility just get the identical
+ * ring twice — harmless, not a visual regression.
+ */
+:focus-visible {
+  outline: 2px solid rgb(var(--certified-gold));
+  outline-offset: 2px;
+}
+
 /* Motion system (docs/design-system.md §2): every transition respects reduced-motion. */
 @media (prefers-reduced-motion: reduce) {
   *,
