@@ -4,14 +4,31 @@ import { can } from '@/lib/permissions';
 import { createClient } from '@/lib/supabase/server';
 import { SuspendForm } from './SuspendForm';
 
-// /staff/organizations/[id] — full view for Admin/Account Manager
-// (docs/build-phases.md Phase 2.5). Finance's reduced-field view of this
-// same route is Phase 9 (see app/staff/(console)/organizations/page.tsx).
+const STATUS_LABEL: Record<string, string> = {
+  pending: 'Pending',
+  more_info_requested: 'More info requested',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  suspended: 'Suspended',
+};
+
+// /staff/organizations/[id] — full view for Admin/Account Manager (docs/
+// build-phases.md Phase 2.5); Finance's reduced-field view (Phase 9) below
+// reads organizations_finance_view instead of the base table — never the
+// KYC fields (owner_id_document_url, owner_nin) or contact fields
+// (owner_phone, owner_email) that view never exposed in the first place
+// (supabase/migrations/0009), and no suspend action (Finance doesn't have
+// suspend_organization in the matrix either).
 export default async function OrganizationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { role } = await requireStaffSession();
-  if (!can(role, 'view_organizations') || role === 'finance') redirect('/staff');
+  if (!can(role, 'view_organizations')) redirect('/staff');
 
   const { id } = await params;
+
+  if (role === 'finance') {
+    return <FinanceOrganizationDetail id={id} />;
+  }
+
   const supabase = await createClient();
 
   const { data: org } = await supabase.from('organizations').select('*').eq('id', id).maybeSingle();
@@ -57,6 +74,31 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
       {can(role, 'suspend_organization') && (org.status === 'approved' || org.status === 'suspended') ? (
         <SuspendForm organizationId={org.id} status={org.status} />
       ) : null}
+    </main>
+  );
+}
+
+async function FinanceOrganizationDetail({ id }: { id: string }) {
+  const supabase = await createClient();
+  const { data: org } = await supabase
+    .from('organizations_finance_view')
+    .select('id, name, plan, status, created_at, certificates_issued')
+    .eq('id', id)
+    .maybeSingle();
+  if (!org) notFound();
+
+  return (
+    <main className="mx-auto flex max-w-3xl flex-col gap-6 p-8">
+      <div>
+        <h1 className="font-display text-2xl text-certified-navy">{org.name}</h1>
+        <p className="text-certified-muted">{STATUS_LABEL[org.status] ?? org.status}</p>
+      </div>
+
+      <section className="grid grid-cols-2 gap-4 rounded-card border border-certified-border p-6 text-sm">
+        <Field label="Plan" value={org.plan ?? 'Free'} />
+        <Field label="Joined" value={new Date(org.created_at).toLocaleDateString()} />
+        <Field label="Certificates issued" value={String(org.certificates_issued)} />
+      </section>
     </main>
   );
 }
