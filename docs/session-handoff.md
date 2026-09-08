@@ -5,13 +5,18 @@ verified, what's still open. Read this alongside `docs/build-phases.md`
 (the plan) before starting a new phase; this doc is the "what actually
 happened" complement to that plan.
 
-**Last updated:** 2026-09-07 — Phase 8 (trainee self-claim, both items:
-claim+verify PR #20, profile editor+self-hide PR #21) merged, plus a
-docs-only handoff update (#19). **20 PRs merged, none open**, `main` builds
-clean (`tsc`, `npm test`, `npm run build`). Then, out-of-band (not a
-numbered `docs/build-phases.md` phase — flagged as such rather than
-retrofitted into the sequence): the public marketing site itself, which had
-never been built past a Phase-0 placeholder homepage, per §17 below.
+**Last updated:** 2026-09-08 — Phase 2.75 (#25) and all of Phase 9 (#26–30,
+plus the Finance-reduced-`/staff/organizations`-view gap it surfaced,
+#31/#32) merged; a first production deploy went out (fixing a cron-
+schedule bug along the way, #24); migrations `0024`/`0025` applied live to
+the hosted project. See §18 below for the full recap — this paragraph is
+deliberately short, that section has the detail. **30 PRs merged, 1 open**
+(#31, Finance's reduced organizations view — reviewed, not yet merged by
+the user as of this writing) plus one stale docs-only PR (#23) nobody's
+acted on. `main` builds clean (`tsc`, `npm run build`) as of `633cb1f`/
+`16f91fd`. Phase 8 (trainee self-claim, PRs #20/#21) and the out-of-band
+marketing site (#22) were already done as of the previous update — still
+true, unchanged, see §16/§17.
 
 ---
 
@@ -31,37 +36,57 @@ never been built past a Phase-0 placeholder homepage, per §17 below.
 | 6 — Contact/hire flow | ✅ merged | #14, #15 | Reveal-or-relay on both trainee and issuer public profiles. Migration 0020 |
 | 7 — Bulk/CSV cohort issuance | ✅ merged | #16, #17 | CSV upload/validate/enqueue + Cron-or-page-view-driven processor. Migrations 0021–0022 |
 | — `/apply` hang fix + password UX + staff reset | ✅ merged | #18 | See §15. No schema change |
-| 8 — Trainee self-claim | **not started** | — | Next up, see §16 |
+| 8 — Trainee self-claim | ✅ merged | #20, #21 | Claim+verify, then profile editor+self-hide. See §16 |
+| — Public marketing site (out-of-band) | ✅ merged | #22 | 11 pages + shared public shell/nav/footer. See §17 |
+| — Fix bulk-issuance cron schedule | ✅ merged | #24 | Hobby plan only allows daily crons; `*/5 * * * *` → `0 0 * * *`. Surfaced by a real deploy attempt, see §18 |
+| 2.75 — Staff team management & audit log | ✅ merged | #25 | `/staff/team`, `/staff/audit-log`, `/staff/settings` — see §18. Never actually started before this |
+| 9, item 1 — Finance usage dashboard | ✅ merged | #26 | `/staff/finance`. Migration 0024 |
+| 9, item 2 — Finance reports | ✅ merged | #27 | `/staff/finance/reports` (CSV/PDF). Migration 0025 (needed a follow-up fix, #32) |
+| 9, item 3 — Finance billing placeholder | ✅ merged | #28 | `/staff/finance/billing` |
+| 9, item 4 — Operational analytics | ✅ merged | #29 | `/staff/analytics` |
+| 9, item 5 — App-wide polish pass (scoped) | ✅ merged | #30 | See §18 for what was/wasn't in scope |
+| — Finance's reduced `/staff/organizations` view | **open, reviewed** | #31 | Not one of Phase 9's 5 named items — a gap flagged since Phase 2.5 (#5), closed here. Waiting on merge |
+| — Fix migration 0025 (column-order bug) | ✅ merged | #32 | See §18 |
 
-18 PRs merged in order, none open as of this writing. `main` builds clean
-(`npx tsc --noEmit`, `npm test`) as of `3d62145` — `npm run build` wasn't
-re-run after the very latest commits specifically to avoid disrupting a
-live dev server a session had open for the user's own testing; worth a
-fresh `npm run build` early in the next session just to confirm, since
-it's cheap insurance.
+30 PRs merged, 1 open (#31, awaiting merge) as of this writing, plus a
+stale unrelated docs-only PR (#23) nobody's acted on. `main` builds clean
+(`npx tsc --noEmit`, `npm run build`) as of `16f91fd`.
 
 ---
 
 ## 2. Live infrastructure
 
-**Vercel (production)**: https://certified-app-lime.vercel.app — live as
-of the Phase 4 era (§8). Not redeployed since — Phases 5–7 and the #18
-fixes only exist on `main`/hosted Supabase, not on production yet. `vercel.json`
-(added in Phase 7) declares a Cron job hitting `/api/cron/process-bulk-
-issuance` every 5 minutes — this has **never actually run**, since it only
-fires once deployed, and **`CRON_SECRET` is not yet set on the Vercel
-project** (only documented in `.env.example`, blank in `.env.local` too).
-Before the next real production deploy: generate and set `CRON_SECRET` on
-both `.env.local` and the Vercel project's env vars, or the Cron route's
-auth check has nothing to check against (it no-ops the check entirely when
-the env var is unset — fine for local dev, not for production).
+**Vercel (production)**: https://certified-app-lime.vercel.app — **actually
+redeployed this session** (the gap this section used to describe — "not
+redeployed since Phase 4" — is closed). Deploy was blocked at first:
+`vercel.json`'s Cron job (`*/5 * * * *` on `/api/cron/process-bulk-
+issuance`) is rejected outright on Vercel's Hobby plan, which only allows
+crons that run once a day — fixed to `0 0 * * *` (#24) before the deploy
+would go through at all. `CRON_SECRET` being unset on the Vercel project
+(noted here previously) is still true and still worth fixing before relying
+on the cron firing for real, but it no longer blocks deployment itself.
+Everything through PR #30 (all of Phase 9 + the polish pass) is on
+production as of this writing; #31/#32 (Finance's org view + its migration
+fix) are merged to `main` but not yet in a fresh deploy — redeploying is a
+separate, explicit step per `CLAUDE.md`'s free-tier discipline, not
+something that happens automatically on merge (auto-deploy-on-push is
+disabled by design).
 
-**Supabase project**: `wvcvzeybvloamkkghckp` (hosted, not local — still no
-Docker/Supabase CLI in this environment).
+**Supabase project**: `wvcvzeybvloamkkghckp` (hosted, not local — confirmed
+again this session that the Supabase CLI flat out can't run on this
+machine: `npx supabase start` fails immediately with "No matching Supabase
+CLI binary package found for win32-x64", not just "no Docker" as earlier
+sessions phrased it — there is no local-Supabase path available here at
+all, full stop). Migrations continue to be hand-pasted into the hosted
+project's SQL Editor by the user — see §18 for two fresh lessons learned
+about that this session (the free-tier-quota style verification pattern,
+and a real `CREATE OR REPLACE VIEW` column-ordering bug).
 
-**Migrations `0001`–`0022` all confirmed applied** — verified directly this
-session via a throwaway script querying real columns/tables through the
-service-role client (not assumed from memory or from what was "sent").
+**Migrations `0001`–`0025` all confirmed applied** — `0024`/`0025` this
+session, the rest verified directly in earlier sessions via a throwaway
+script querying real columns/tables through the service-role client (not
+assumed from memory or from what was "sent"). `0025` needed a follow-up
+fix (#32) after its first version failed live — see §18.
 Schema now covers: `organizations` (+ `slug`/`bio`/`training_fields`/pan-
 African address columns), `applications`, `training_programs` (+
 `certificate_validity_months`), `trainees` (+ pan-African location columns,
@@ -561,3 +586,153 @@ message, not something in this PR's code; didn't chase it further.
   `hidden .../lg:flex` pattern already used elsewhere in the app, but a
   real-device or manual DevTools check is worth doing before treating
   mobile nav as fully confirmed.
+
+---
+
+## 18. Phase 2.75, all of Phase 9, a real deploy, and two migration lessons
+
+This session picked up from a plain deploy request ("update the deploy...
+because I paused the build and unpaused it") and ended up covering a lot of
+ground: a first real production redeploy, the never-started Phase 2.75, all
+five items of Phase 9, one flagged-but-unscoped gap Phase 9 surfaced, and
+two genuine migration bugs caught by live verification rather than assumed
+away. Each PR was reviewed and merged individually, in order, per the
+usual rhythm — nothing here was batched into one giant PR.
+
+**Deploy + cron fix (#24).** `npx vercel --prod` failed outright — not a
+transient error — because Vercel's Hobby plan rejects any cron more
+frequent than daily, and `vercel.json` (Phase 7) had `*/5 * * * *`. User
+chose "once daily" over the other options (drop the cron entirely, or pay
+for Pro) when asked. Fixed to `0 0 * * *`, deploy succeeded. This is also
+where this doc's "Supabase CLI has no Docker" note got corrected to "no
+Docker *and* no working Windows binary at all" — confirmed by actually
+trying `npx supabase start` this session.
+
+**Phase 2.75 (#25) — never actually started before this.** Caught by
+checking `git log --all`/branch list before assuming Phase 9 was next,
+rather than trusting the route list alone: Phase 2.5 was deliberately
+partial ("by design," #5's own commit message defers Certificates/
+Revocations/Moderation/Support to land alongside later phases), but Phase
+2.75 (`/staff/team`, `/staff/audit-log`, `/staff/settings`) had no branch,
+no commit, not even a mention in this doc's own open-items list — it had
+simply fallen through the cracks. Flagged to the user before building
+anything; user chose to do it first, ahead of Phase 9. Built all three
+pages exactly per `docs/build-phases.md`'s own Phase 2.75 prompt — nothing
+surprising here, the `admin_users`/`audit_log` schema and RLS policies
+already had everything needed (the audit_log migration's own comment
+literally anticipated "Phase 2.75" by name for the self-scoping policy).
+Verified live with a disposable test staff account, cleaned up after.
+
+**Phase 9, all five items (#26–30).**
+- Item 1, `/staff/finance` (#26): two live metrics (Supabase DB/storage
+  size, via two new `SECURITY DEFINER` RPCs — migration `0024` — because
+  `.schema('storage')` is flatly unavailable through this project's
+  PostgREST config, confirmed live with a `PGRST106` error before writing
+  the RPC workaround), three manual-entry metrics (Resend/Upstash/Vercel —
+  no live source exists for any of them in this stack, persisted to
+  browser `localStorage` rather than a new DB table, a deliberate v1
+  shortcut flagged in `lib/usage/free-tier.ts`'s own header comment).
+- Item 2, `/staff/finance/reports` (#27): CSV/PDF export reusing
+  `organizations_finance_view`/`certificates_finance_view` — both already
+  existed from Phase 0 (migration `0009`) and were sitting unused. Needed
+  one small migration (`0025`) to add `created_at` to the org-growth view
+  for a real trend instead of a snapshot — see the migration-bug note
+  below.
+- Item 3, `/staff/finance/billing` (#28): a real placeholder (not static
+  text) — reads `organizations_finance_view.plan` for a live
+  plan-distribution count, trivial today but the right shape for real
+  billing later.
+- Item 4, `/staff/analytics` (#29): issuance volume, approvals/rejections,
+  top training fields, geographic spread, anomaly surfacing (an org
+  issuing ≥3× its own historical average). Account Manager is unscoped
+  here (not "own actions only" like audit-log) — confirmed live with a
+  disposable test AM account that this is actually true, not assumed from
+  the permission matrix alone.
+- Item 5, app-wide polish pass (#30), **deliberately scoped down** after
+  asking the user rather than guessing: a literal "every clickable element,
+  no exceptions" retrofit across ~50 routes was rejected in favor of
+  shared infrastructure (a global `:focus-visible` fallback, a shared
+  `Card`/`IconButton`) applied to the directory and both dashboard shells'
+  new responsive collapse/drawer behavior. Turned out `verify/[public_id]`'s
+  animated reveal and the entire marketing site were **already** fully
+  compliant with `design-system.md` §2/§7/§10 from earlier sessions — real
+  good news, not something this PR needed to redo. Retrofitting the ~40
+  existing staff/dashboard pages' inline buttons/tables is explicitly
+  **not done**, tracked as follow-up, not silently dropped.
+  - Mid-PR, a stray `git checkout main -- .` briefly reverted the working
+    tree back to pre-change state. Caught immediately (before anything was
+    pushed) via the file-change notices the harness surfaces, fixed with
+    `git reset --hard` back onto the actual commit, re-verified with a
+    clean typecheck/build, confirmed `main` itself was never touched.
+    Worth remembering: `git checkout <ref> -- .` checks out *that ref's*
+    version of every path into the *current* working tree, regardless of
+    which branch you're actually on — it's not a "make my branch match
+    that ref" operation.
+
+**Finance's reduced `/staff/organizations` view (#31, #32) — flagged, not
+one of Phase 9's five named items.** While building #27, noticed
+`organizations_finance_view` already existed and already gave Finance
+exactly the "limited columns: name, plan, status, usage" `docs/roles-
+permissions.md` §2 promised — but nothing actually let Finance reach
+`/staff/organizations` at all (excluded outright since #5, "deferred to
+Phase 9" per that commit's own words). Added to the task list rather than
+either silently building it as a stealth sixth Phase-9 item or silently
+ignoring it; built once the five named items were done. Split
+`/staff/organizations` and `/staff/organizations/[id]` on `role ===
+'finance'` into a reduced branch reading the finance view, full branch
+unchanged for Admin/AM.
+
+**Migration `0025`'s column-ordering bug — a real lesson, not just a typo.**
+First version of `0025` put `created_at` *before* `certificates_issued` in
+`organizations_finance_view`'s select list. `CREATE OR REPLACE VIEW`
+compares the new column list to the old one **position-by-position** — it
+only allows *appending* new columns at the end; inserting one in the
+middle shifts everything after it and Postgres reads that as an attempt to
+*rename* the column already sitting at that position. The user hit this
+running the SQL directly: `42P16: cannot change name of view column
+"certificates_issued" to "created_at"`. Fixed in #32 by moving `created_at`
+to the end of the select list — no application code changes needed, since
+every caller selects columns by name, never `select *`. Worth remembering
+for any future view-column addition: **append only, never insert**, same
+rule this codebase had already documented for *renaming* a view column
+(migrations `0016`/`0017`'s drop-and-recreate approach) — this is the same
+constraint, just triggered by an insert instead of a rename.
+
+**Verification pattern used throughout, for anything hitting the hosted
+Supabase project**: create a disposable test staff account (whatever role
+the feature needs), sign in as it with the anon key (exactly what the real
+login page does), run the actual queries/RLS paths the new code depends
+on, then delete the test account and any rows it touched. This confirms
+real behavior (RLS scoping, view self-filtering, graceful degradation
+before a pending migration is applied) rather than trusting code review
+alone — used for Phase 2.75, all of Phase 9's DB-touching items, and the
+Finance org view. Every temporary verification script lived under
+`scripts/tmp-*.ts` and was deleted before committing — none of them are in
+the repo.
+
+**Still open, not silently dropped:**
+1. **PR #31** (Finance's reduced org view) is reviewed and ready but not
+   yet merged as of this writing — the user was mid-conversation about the
+   migration `0025` bug when this doc was updated.
+2. **`components/IssuerShell.tsx`/`StaffShell.tsx` still have no sign-out
+   UI** — flagged back in #22 (the marketing site's out-of-band PR, §17
+   above), still true after this session's shell rewrite for responsive
+   collapse/drawer (#30) touched both files without adding one. Small,
+   real, worth a follow-up.
+3. **The ~40 existing staff-console/issuer-dashboard pages' inline
+   buttons/inputs/tables** were not retrofitted to the new shared `Card`/
+   `IconButton` components or to a mobile stacked-card table layout —
+   explicitly deferred per the scoping conversation before #30 started.
+4. **`CRON_SECRET` is still not set on the Vercel project** — the cron
+   route's auth check still no-ops with it unset. Doesn't block deploys
+   anymore (that was the schedule-frequency issue, now fixed), but the
+   cron endpoint has no real auth in production until this is set.
+5. Redeploying to pick up #31/#32 (once merged) and the fresh `0024`/`0025`
+   migrations is a separate explicit step, not done automatically — next
+   session should ask before doing it, same as always.
+
+**Suggested next step**: `docs/build-phases.md` Phase 10 (load-test
+`/verify/[public_id]` and the contact-reveal route, a full pass against
+`docs/blueprint.md` §6's loophole table confirming each mitigation is
+actually implemented rather than just planned, then propose — don't just
+do — a production deploy on the custom domain).
