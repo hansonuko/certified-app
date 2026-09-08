@@ -67,7 +67,14 @@ export default async function OrganizationsListPage({
 
   return (
     <main className="flex flex-col gap-4 p-8">
-      <h1 className="font-display text-2xl text-certified-navy">Organizations</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-2xl text-certified-navy">Organizations</h1>
+        {can(role, 'create_organization') ? (
+          <Link href="/staff/organizations/new" className="rounded-control bg-certified-navy px-3 py-1.5 text-sm text-white">
+            Add organization
+          </Link>
+        ) : null}
+      </div>
 
       <SearchForm q={q} />
 
