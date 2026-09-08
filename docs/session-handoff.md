@@ -5,21 +5,28 @@ verified, what's still open. Read this alongside `docs/build-phases.md`
 (the plan) before starting a new phase; this doc is the "what actually
 happened" complement to that plan.
 
-**Last updated:** 2026-09-08 — since the previous update: the platform's
-first monetization work, Monetization Flow A (certificate credits), scoped
-across three flows in conversation but only Flow A approved and built —
-migration `0030` (not yet applied to the hosted project), the whole
-`lib/payments/` abstraction (Flutterwave + Paystack), issuance gating,
-real `/dashboard/billing` and `/staff/finance/billing` pages, two webhook
-routes, two new `CLAUDE.md` non-negotiable rules, and a public `/pricing`
-copy fix. See §20 for the full recap — on branch
-`monetization-flow-a-certificate-credits`, **not yet a PR, not yet
-merged, migration not yet live-verified**. Everything before this is
-unchanged from the previous update: **39 PRs merged, 0 open** from that
-session's own work, plus one stale unrelated docs-only PR (#23) nobody's
-acted on. `main` builds clean (`tsc`, `npm run build`) as of `d2ad534`;
-this branch also builds clean on top of it (`tsc`, `npm run build`,
-`npm test` — 20/20 — all verified before this update).
+**Last updated:** 2026-09-08 — this doc had fallen behind `main` by nine
+merged PRs before this update (§20–22 above still described Monetization
+Flow A as "not yet a PR" long after it, and everything through PR #53, had
+actually shipped) — corrected here, then this session's own work (Flutterwave
+multi-method payments, §24) added on top. In order: **PR #44** merged Flow A
+itself (§20); **PR #45** was a docs-only handoff update; **PR #46** built
+staff wallet management (§21); **PR #47** was another docs-only update plus
+the first production redeploy with live payment credentials (§22); **PR #48**
+made Wallets its own staff sidebar nav item; a direct-to-main guard-trigger
+security fix (service-role calls were being wrongly blocked by the same
+owner-write guard `0030` added — see §23) landed alongside **PR #50**, which
+also added `/apply` save-and-continue-later and made the sitewide "become an
+issuer" CTAs status-aware; **PR #51** added organization/issuer search to the
+public directory; **PR #52** hid those same apply CTAs sitewide for anyone
+who's already applied; **PR #53** added a light/dark theme toggle to both
+dashboard shells. See §23 for the consolidated recap of #46–53 (§21's own
+entry already covers #46 in full). **This session**: Flutterwave's checkout
+was card-only — added mobile money, USSD, and bank transfer as real
+alternatives, branch `flutterwave-multi-method-payments`, **PR #54, not yet
+merged** — see §24. `main` builds clean (`tsc`, `npm run build`, `npm test` —
+20/20) as of `4a93fe9` (PR #53); PR #54's branch builds equally clean on top
+of it.
 
 ---
 
@@ -87,6 +94,48 @@ User confirmed migrations `0032`/`0033` applied, merged PR #46, and asked to see
 
 ---
 
+## 23. Wallets nav visibility, a guard-trigger bug, apply/CTA cleanup, directory org search, dashboard theming (PRs #47–53)
+
+This doc went stale here — these landed in an earlier session and were never written up, discovered only by diffing `main` against this file's own "still open" claims before the update above. Recapped from each PR's own (good) commit messages rather than re-verified fresh, since the underlying work already carries its own verification notes:
+
+- **PR #47** (`docs-production-redeploy-payments`, docs-only): the production redeploy with live Paystack/Flutterwave credentials — this is §22 above, which *was* written up correctly at the time, just never had its "last updated" summary kept current afterward.
+- **PR #48** (`staff-nav-wallets-visible`): `/staff/finance/wallets` (§21) was only reachable as a link inside the Finance overview page — `lib/staff-nav.ts` now lists **Wallets** as its own top-level sidebar item, same Admin+Finance (`manage_billing`) gate as Finance itself.
+- **A real bug, fixed direct-to-main alongside PR #50**: `guard_organization_status_columns()` (added by migration `0030` to stop an org self-crediting `certificate_credits`) checks `is_staff()`, which reads `auth.uid()` from the request JWT — but every credit-mutating function (`spend_certificate_credit`, `refund_certificate_credit`, `add_certificate_credits`, `adjust_certificate_credits_manual`) is only ever invoked via the **service-role** client, which carries no user JWT. `is_staff()` was unconditionally `false` there, so the trigger had been silently rejecting every one of these calls since `0030` shipped — caught live via a disposable test org (`adjust_certificate_credits_manual` threw the trigger's own exception). Migration `0034` adds a service-role exemption, matching how `certificates`/`audit_log`/`jobs` already trust the service-role client without an equivalent trigger blocking it. **Practical implication for everything in §20–22**: certificate-credit crediting/spending/refunding may not have actually been working at all between `0030` shipping and `0034` being applied — worth a fresh disposable-test-org pass on the credit functions specifically if that window matters.
+- **PR #50** (`fix-apply-payments-cta`, three commits): `/apply` gained **save-and-continue-later** — a new `application_drafts` table (migration `0035`, owner-only RLS, no staff visibility — a draft isn't a review construct), autosaved on every wizard step transition, with documents uploaded to the draft immediately (a resumed session can't repopulate a file `<input>`). Also made the sitewide "become an issuer" CTA (`components/ApplyStatusCallout.tsx`, in the footer) auth/status-aware — it had been static on every page regardless of whether the visitor already had a pending/rejected application or was an approved issuer, and the homepage/`for-businesses` pages each additionally hardcoded their own near-identical version, producing a visible "same heading twice" duplication now removed.
+- **PR #51** (`directory-organization-search`): before this, an approved organization had no discoverable listing at all — `/directory` only ever searched trainees. New `/directory/organizations` page searches `organizations_public_view` by name/bio/training-fields/location, with real SQL-level range pagination and an exact count (unlike the trainee directory's in-memory-slice approach). New shared `DirectoryTabs` component and `lib/directory/sanitize-search-term.ts` (extracted from the trainee search's existing sanitizer rather than duplicated). Live-verified against the hosted project with a disposable approved test org.
+- **PR #52** (`dynamic-apply-cta-sitewide`): PR #50's footer fix turned out to be one of several places still unconditionally telling every visitor to apply, including an already-approved signed-in issuer — the homepage's CTA card, `/pricing`'s apply button, `/about`'s apply button, `/how-it-works`' entire "Ready to get started?" section, and `for-businesses`' header subtitle all got the same status-aware treatment via a new shared `components/ApplyCtaButton.tsx`. Live-verified against the hosted project with a real approved test org.
+- **PR #53** (`dashboard-theme-toggle`): `components/ThemeToggle.tsx` existed only in the public site header — neither dashboard shell (`IssuerShell.tsx`/`StaffShell.tsx`) could switch themes, even though the global no-flash bootstrap script already covered every route including dashboards. Added to each shell's top bar next to sign-out, reusing the same component. Sidebars deliberately keep their fixed navy/slate branding regardless of theme (identifies which console you're in, not a themeable "surface").
+
+**Verified** (per each PR's own commit message): `tsc`/`build`/`test` (20/20) clean throughout; the guard-trigger fix's and #51/#52's live-verification claims are as stated above, not independently re-checked in this update.
+
+**Still open, carried forward**: everything from §20's Flutterwave list (still genuinely untested against any live endpoint even after §24's multi-method work below — see that section), `CRON_SECRET` unset on Vercel, `FLUTTERWAVE_WEBHOOK_SECRET_HASH` unset, migrations `0034`/`0035` need the usual hosted-project hand-paste + disposable-test verification (flagged with extra urgency above given `0034`'s bug), and **everything from PR #48 onward (`main` at `4a93fe9`) has not been redeployed to production** — the last confirmed-live deploy is still the one in §22 (through PR #46/#47).
+
+---
+
+## 24. Flutterwave multi-method payments (branch `flutterwave-multi-method-payments`, PR #54, pending review)
+
+Picked up from a direct user request: Flutterwave's checkout was card-only — quite literally labeled "Flutterwave (card)" in the UI (§20) — while Paystack gets card/bank-transfer/USSD "for free" via its own hosted checkout page. Added the other v4 direct-charge payment methods so Flutterwave is a real second option, not a second card processor. Also cleaned up the two now-superseded local/remote `docs-session-handoff-*` branches this session started from (see this update's own header) — `docs-session-handoff`/`-2`/`-3` were already merged (routine local cleanup), `docs-session-handoff-4` and `docs-session-handoff-nav-and-redeploy` were stale, unmerged, and fully superseded by what actually landed in `main` (confirmed via `git diff` against each before deleting, not assumed) — deleted locally; remote deletion was denied by the environment's own permission classifier as an outward-facing action, so those two still exist on `origin` for the user to remove if wanted.
+
+**What shipped:**
+- **`lib/payments/flutterwave.ts`**: `DirectChargeParams`'s hard-coded `card` field replaced with a discriminated `FlutterwavePaymentMethod` union (`card` / `mobile_money` / `ussd` / `bank_transfer`) — `createDirectCharge` now builds the request's `payment_method` body per type instead of always emitting `type: 'card'`. A new `pending_instructions` outcome carries USSD's dial code, mobile money's "approve on your phone" prompt, or bank transfer's generated virtual-account details back to the caller (Flutterwave's `next_action.type` values `payment_instruction`/`requires_bank_transfer`, researched fresh against developer.flutterwave.com since nothing in-repo had ever modeled non-card methods). A mobile money network that responds with `qr_code` confirmation (a real, documented v4 outcome) is declined with a clear message, same "flag rather than guess" reasoning already applied to card's unsupported PIN/OTP case.
+- **A real correctness fix surfaced by this work**: `parseWebhookEvent` was mapping *any* non-`'success'` status to `'failed'`, including an intermediate `'pending'`. Harmless for card (resolves mostly synchronously via redirect), but a real risk for the three new async methods, which have a genuine multi-minute "waiting on the payer" window — an intermediate pending webhook could have wrongly flipped a payment to `failed` before the payer even finished dialing/transferring. Now only `success`/`failed`/`cancelled`/`expired` produce an event; anything else is ignored, leaving `confirmFlutterwaveChargeByReference`'s own `getCharge()` poll (billing callback page) as the resolution path, same as before this fix for any status it didn't recognize.
+- **`lib/payments/flutterwave-options.ts`** (new): the one source of truth for mobile money networks (Ghana MTN/Vodafone/AirtelTigo, Kenya M-Pesa — the only two non-NGN currencies this app already bills in, `lib/payments/currency.ts`) and Nigerian USSD bank codes (10 major banks) — used by both `BuyCreditsForm.tsx`'s `<select>`s and the server action's own validation, so a tampered/stale client value is rejected server-side rather than trusted.
+- **`app/dashboard/billing/actions.ts`**: `initiateFlutterwaveCharge` now dispatches on a `flutterwave_method` field instead of always reading card fields, validates each method's fields against the option lists above, and cross-checks mobile money/USSD against the org's own server-computed billing currency (not the client's method choice) before ever calling Flutterwave.
+- **`app/dashboard/billing/BuyCreditsForm.tsx`**: a "Pay via" selector nested under Flutterwave (Card / Bank transfer always shown; USSD only for Nigerian orgs; Mobile money only for Ghana/Kenya orgs), with a per-method sub-form. Once an async charge returns `pending_instructions`, the form is replaced entirely by an instructions panel (not just an error message) — deliberately prevents a stray resubmit from firing a second charge for the same top-up while the first is still in flight.
+- **`supabase/migrations/0036`**: additive `payments.payment_method` column (card/mobile_money/ussd/bank_transfer, null for Paystack) — for support/reconciliation only, nothing downstream reads it yet. **Not yet applied to the hosted project.**
+
+**Verified:** `npx tsc --noEmit`, `npm run build`, `npm test` (20/20) all clean. Dev server started (`npm run dev`, clean `.next` rebuild) and left running for the user's own manual testing.
+
+**Not verified, flagged plainly rather than presented as more solid than it is:** exactly the same caveat as the original card flow (§20) — this is written faithfully against developer.flutterwave.com's current v4 reference docs (`payment-orchestrator-flow`, `payment-methods`, `bank-transfer`), but **no sandbox credentials have ever been available for this integration**, so **none of the four payment methods, card included, have ever been exercised against a live Flutterwave endpoint**. The bank-transfer request shape in particular (`type: 'bank_transfer'`, a `pwbt: { account_type: 'dynamic' }` object) was the least consistently documented of the three new methods across Flutterwave's own pages during research — worth the closest look in a real sandbox pass.
+
+**Still open:**
+1. A real sandbox-credentialed test pass — one per payment method, not just card — before any of this serves real traffic, per §20's existing recommendation, now with three more methods needing the same treatment.
+2. Migration `0036` needs the usual hosted-project hand-paste.
+3. Not merged — **PR #54 is open, waiting on explicit merge approval**, per usual. Not deployed.
+4. Everything else from §20/§23's still-open lists (Flutterwave webhook secret unset, `CRON_SECRET` unset, migrations `0034`–`0036` all pending, PRs since #47 not yet redeployed) is unchanged by this section.
+
+---
+
 ## 1. Where things stand
 
 | Phase | Status | PR | Notes |
@@ -124,10 +173,18 @@ User confirmed migrations `0032`/`0033` applied, merged PR #46, and asked to see
 | — Dashboard: Messages inbox | ✅ merged | #41 | New `contact_requests` table — the contact/hire relay was email-only before. Migration 0029. See §19 |
 | — Sign-out button, both dashboard shells | ✅ merged | #42 | Closed a gap flagged since #22 |
 | 11, item 1 — Monetization Flow A (certificate credits) | ✅ merged | #44 | Migration `0030` applied live; `0031` (Flutterwave v4's `provider_charge_id`) needs the same treatment — see §20 |
+| — Staff wallet management + confirmation hardening | ✅ merged | #46 | `/staff/finance/wallets`, manual credit/debit adjustment, stuck-pending-payments queue. Migrations 0032–0033. See §21 |
+| — Wallets nav visibility | ✅ merged | #48 | `/staff/finance/wallets` promoted to its own top-level sidebar item. See §23 |
+| — `/apply` save-and-continue-later + status-aware CTAs + guard-trigger fix | ✅ merged | #50 | New `application_drafts` table, migration 0035; guard-trigger service-role exemption, migration 0034 (see §23's "practical implication" note). See §23 |
+| — Public directory: organization/issuer search | ✅ merged | #51 | `/directory/organizations`. See §23 |
+| — Hide apply CTAs sitewide once already applied | ✅ merged | #52 | Extends #50's footer fix to homepage/pricing/about/how-it-works/for-businesses. See §23 |
+| — Dashboard light/dark theme toggle | ✅ merged | #53 | Both `IssuerShell`/`StaffShell` top bars. See §23 |
+| — Flutterwave multi-method payments | 🔲 open, pending review | #54 | Mobile money, USSD, bank transfer alongside card. Migration 0036 (not yet applied). See §24 |
 
-39 PRs merged, 0 open (from this session's own work) as of this writing,
+47 PRs merged, 1 open (#54, this session's own work) as of this writing,
 plus a stale unrelated docs-only PR (#23) nobody's acted on. `main` builds
-clean (`npx tsc --noEmit`, `npm run build`) as of `d2ad534`.
+clean (`npx tsc --noEmit`, `npm run build`, `npm test` — 20/20) as of
+`4a93fe9` (PR #53); PR #54's branch builds equally clean on top of it.
 
 ---
 
@@ -149,6 +206,10 @@ out) is merged to `main` but not yet in a fresh deploy** — redeploying is a
 separate, explicit step per `CLAUDE.md`'s free-tier discipline, not
 something that happens automatically on merge (auto-deploy-on-push is
 disabled by design). Propose it, don't just do it, next time this comes up.
+**Update (§22/§23):** #31–#42 *were* redeployed along with #44–#46/#47
+(§22's own redeploy). **Everything from #48 onward (through #53, `main` at
+`4a93fe9`) is merged but not yet in a fresh deploy** — same gap, recurring;
+propose it rather than assume it next time.
 
 **Supabase project**: `wvcvzeybvloamkkghckp` (hosted, not local — confirmed
 again this session that the Supabase CLI flat out can't run on this
@@ -182,6 +243,14 @@ African address columns), `applications`, `training_programs` (+
 `verify_certificate()` function. Storage buckets: `application-documents`
 (private), `org-brand-assets`, `certificates`, `trainee-photos` (all three
 public).
+
+**Update (§20–§24):** migrations `0030`–`0034` are confirmed applied (user
+applied `0030`/`0032`/`0033` directly, per §20/§21; `0034`'s guard-trigger
+fix is also applied, per §23). `0031` (Flutterwave `provider_charge_id`),
+`0035` (`application_drafts`), and `0036` (this session's `payments.
+payment_method`) have **not** been confirmed applied — flag before relying
+on any Flutterwave charge-status lookup, `/apply` save-and-continue, or the
+new payment-method reporting column against the hosted project.
 
 **Lesson learned this session, worth repeating**: `CREATE OR REPLACE
 VIEW`/`FUNCTION` can only *append* new output columns — it cannot rename or
