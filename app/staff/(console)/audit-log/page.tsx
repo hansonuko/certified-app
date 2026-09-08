@@ -7,6 +7,7 @@ const ACTION_LABEL: Record<string, string> = {
   application_more_info_requested: 'Application — more info requested',
   organization_suspended: 'Organization suspended',
   organization_reinstated: 'Organization reinstated',
+  organization_reassigned: 'Organization reassigned to a different Account Manager',
   certificate_revoked: 'Certificate revoked',
   staff_account_invited: 'Staff account invited',
   staff_role_changed: 'Staff role changed',

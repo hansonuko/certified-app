@@ -3,6 +3,8 @@ import { requireStaffSession } from '@/lib/auth/staff';
 import { can } from '@/lib/permissions';
 import { createClient } from '@/lib/supabase/server';
 import { SuspendForm } from './SuspendForm';
+import { ReassignForm } from './ReassignForm';
+import { getActiveAccountManagers } from './actions';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Pending',
@@ -70,6 +72,14 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
           <DocLink label="Proof of operation (CAC certificate)" url={proofOfOperationUrl.data?.signedUrl} />
         </div>
       </section>
+
+      {can(role, 'reassign_organization_account_manager') ? (
+        <ReassignForm
+          organizationId={org.id}
+          currentManagerId={org.assigned_account_manager_id}
+          managers={await getActiveAccountManagers()}
+        />
+      ) : null}
 
       {can(role, 'suspend_organization') && (org.status === 'approved' || org.status === 'suspended') ? (
         <SuspendForm organizationId={org.id} status={org.status} />
