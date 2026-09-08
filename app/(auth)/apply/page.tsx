@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { requireIssuerSession } from '@/lib/auth/issuer';
 import { createClient } from '@/lib/supabase/server';
+import { getApplicationDraft } from '@/lib/apply/draft';
 import { ApplyForm } from './ApplyForm';
 
 // docs/sitemap.md: /apply — multi-step application wizard.
@@ -20,5 +21,11 @@ export default async function ApplyPage() {
 
   if (existingOrg) redirect('/apply/status');
 
-  return <ApplyForm />;
+  // Save-and-continue-later: resume silently from wherever they left off
+  // rather than a separate "you have a draft, resume?" prompt (a
+  // deliberate choice — the applicant already has to be signed back in to
+  // reach this page at all, that's the confirmation).
+  const draft = await getApplicationDraft(supabase, userId);
+
+  return <ApplyForm initialDraft={draft} />;
 }
