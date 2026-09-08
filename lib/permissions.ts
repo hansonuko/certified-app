@@ -80,3 +80,16 @@ export const SCOPED_ACTIONS: ReadonlySet<StaffAction> = new Set([
 export function can(role: StaffRole, action: StaffAction): boolean {
   return MATRIX[action]?.includes(role) ?? false;
 }
+
+/**
+ * Read-only view of MATRIX for /staff/team's permissions-matrix display
+ * (docs/build-phases.md's staff-account-management follow-up — "Admin can
+ * see what each role can do at a glance"). Display-only: nothing reads this
+ * to make an authorization decision, `can()` above remains the only
+ * enforcement path. Returned as an array (not the raw MATRIX object) so a
+ * caller can't accidentally mutate the real matrix through a shared
+ * reference.
+ */
+export function getPermissionMatrix(): ReadonlyArray<{ action: StaffAction; roles: ReadonlyArray<StaffRole> }> {
+  return (Object.keys(MATRIX) as StaffAction[]).map((action) => ({ action, roles: MATRIX[action] }));
+}
