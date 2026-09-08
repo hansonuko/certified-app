@@ -68,7 +68,7 @@ Legend: 🌐 public/no-auth · 🔒 authenticated · role tags where relevant (*
 | `/dashboard/messages` | Inbound leads | Contact/hire messages relayed from the public directory (Phase 6) |
 | `/dashboard/settings` | Account settings | Profile, password, 2FA |
 | `/dashboard/settings/team` | Team (deferred) | Multi-user issuer accounts — placeholder page noting "coming soon," flagged deferred in blueprint §10 |
-| `/dashboard/billing` | Billing (deferred) | "You're on the Free plan" placeholder; real billing UI ships with monetization |
+| `/dashboard/billing` | Billing | Certificate-credit balance, tiered top-up (Flutterwave/Paystack), recent credit activity — Monetization Flow A (docs/build-phases.md Phase 11 item 1). Org membership/approval stay free; this only covers paid certificate issuance |
 | `/dashboard/help` | Help/support | Contact Certified Africa, FAQ links |
 
 ## 6. Trainee self-claim (🔒 claimed trainees, docs/build-phases.md Phase 8)
@@ -95,7 +95,7 @@ Legend: 🌐 public/no-auth · 🔒 authenticated · role tags where relevant (*
 | `/staff/analytics` | Operational analytics | ✅ | ✅ (read-only) | ❌ |
 | `/staff/finance` | Usage-vs-free-tier dashboard | ✅ | ❌ | ✅ |
 | `/staff/finance/reports` | Exportable financial/usage reports | ✅ | ❌ | ✅ |
-| `/staff/finance/billing` | Plan/pricing config (deferred until monetization) | ✅ | ❌ | ✅ |
+| `/staff/finance/billing` | Certificate-credit pricing tiers + currency rates (live-editable), plan distribution, credits-sold stats | ✅ | ❌ | ✅ |
 | `/staff/team` | Manage staff accounts (invite, role, suspend) | ✅ | ❌ | ❌ |
 | `/staff/audit-log` | Full audit trail | ✅ (all) | own actions | own actions |
 | `/staff/settings` | System settings (templates, rate limits, integrations) | ✅ | ❌ | ❌ |

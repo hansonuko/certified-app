@@ -24,7 +24,7 @@ export default async function IssueCertificatePage({ params }: { params: Promise
       .maybeSingle(),
     supabase
       .from('organizations')
-      .select('brand_template_id, brand_signatory_name, brand_primary_color')
+      .select('brand_template_id, brand_signatory_name, brand_primary_color, certificate_credits')
       .eq('id', orgId)
       .single(),
   ]);
@@ -48,10 +48,29 @@ export default async function IssueCertificatePage({ params }: { params: Promise
     );
   }
 
+  const credits = org?.certificate_credits ?? 0;
+
   return (
     <main className="mx-auto flex max-w-lg flex-col gap-6 p-8">
       <h1 className="font-display text-2xl text-certified-navy">Issue a certificate</h1>
       <p className="text-certified-muted">For: {program.title}</p>
+      {credits < 1 ? (
+        <p className="rounded-control border border-certified-warning bg-certified-surface-2 px-4 py-3 text-sm text-certified-ink">
+          You have 0 certificate credits — issuing will fail until you pay.{' '}
+          <Link href="/dashboard/billing?quantity=1" className="font-semibold underline">
+            Pay for certificate (₦1,000)
+          </Link>
+          . One credit is spent per certificate issued.
+        </p>
+      ) : (
+        <p className="text-xs text-certified-muted">
+          {credits} certificate credit{credits === 1 ? '' : 's'} remaining —{' '}
+          <Link href="/dashboard/billing" className="underline">
+            manage billing
+          </Link>
+          .
+        </p>
+      )}
       <IssueForm programId={id} />
     </main>
   );

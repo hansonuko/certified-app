@@ -117,7 +117,11 @@ Organization (issuer)
            identification — business/work ID card, government ID, etc.),
            declaration_signed_at, declaration_version, declaration_submission_ip
            (individual trainers only) },
-  created_at, approved_at, approved_by (agent_id)
+  created_at, approved_at, approved_by (agent_id),
+  certificate_credits (int, default 0 — Monetization Flow A, §11.9. Free
+             registration/approval never touches this; it only gates
+             certificate *issuance*. Mutated only via the SECURITY DEFINER
+             functions in supabase/migrations/0030, never a direct write)
 
 Application (versioned submissions tied to an Organization)
   id, org_id, submitted_data (jsonb snapshot), status, agent_notes[],
@@ -149,6 +153,18 @@ AdminUser (internal staff)
 AuditLog
   id, actor_id, actor_type, action, target_type, target_id,
   before, after, at
+
+-- Monetization Flow A (§11.9, docs/build-phases.md Phase 11 item 1):
+
+Payment (one row per checkout attempt, provider-agnostic)
+  id, org_id, purpose[certificate_credits], provider[flutterwave|paystack],
+  provider_reference (unique), quantity, unit_price, discount_percent,
+  amount, currency, status[pending|success|failed], created_at, confirmed_at
+
+CertificateCreditTransaction (ledger behind organizations.certificate_credits)
+  id, org_id, type[purchase|issuance_spend|refund|manual_adjustment],
+  quantity, unit_price, discount_percent, total_amount, currency,
+  payment_id, balance_after, note, created_by (staff, manual_adjustment only), created_at
 ```
 
 Key design choice: **Certificate stores snapshots** of trainee name / program title at issue time. If a trainee later edits their bio or an org renames itself, historical certificates still verify against what was true *at issuance* — this is what makes verification legally meaningful.
@@ -251,7 +267,7 @@ This whole stack has a genuine $0 floor at launch scale and scales gracefully �
 - Trainee self-registration to request certification directly from an issuer (currently issuer-initiated only)
 - Multi-language support (English/Pidgin/local languages)
 - Public API for third parties (e.g. employers) to verify certificates programmatically
-- Paid tiers for issuers (premium directory placement, advanced analytics, custom domains for their public page)
+- ~~Paid tiers for issuers~~ — **partially begun 2026-09** (docs/build-phases.md Phase 11): certificate credits (Flow A, pay-per-issuance) are built; a Premium tier unlocking custom certificate templates (Flow B) and premium directory placement/advanced analytics/custom domains remain deferred.
 - Mobile app (React Native, matching your other builds)
 - AI-assisted résumé/skill matching between employers and certified individuals
 - Recurring/expiring certification reminders (e.g. safety recertification)
@@ -268,7 +284,9 @@ This whole stack has a genuine $0 floor at launch scale and scales gracefully �
 6. **Launch templates** — 10 templates (Angle, Frame, Block, Ribbon, Monogram, Wave, Hex, Split, Deco, Halo — see `docs/design-system.md` §4), each carrying the gold seal.
 7. **Gold seal artwork** — finalized: radial foil-gold disc, single thin ring, low-opacity center watermark, bold "CERTIFIED" lettering. See `docs/design-system.md` §5.
 8. **Pan-African scope, "Certified Africa" rebrand** (2026-09) — the product operates across Africa, not Nigeria-only. Location data is Country (structured, all 54 AU/UN-recognized states) + Region (structured for the priority countries — Nigeria, Ghana, Kenya, South Africa — free text elsewhere) + Locality (free text everywhere) — see §7 and `lib/geo/africa.ts`. The gold seal's own wordmark deliberately stays the shorter "CERTIFIED" (§5.1) rather than changing to match the company name — the trust mark and the company name are allowed to differ, and changing the seal would mean reworking fixed-position artwork already built across all 10 templates for no functional gain.
+9. **Monetization, Flow A: certificate credits** (2026-09, docs/build-phases.md Phase 11 item 1) — organizations pay ₦1,000 (or its local-currency equivalent) per certificate issued, as a **prepaid credit wallet** topped up via Flutterwave or Paystack, not a checkout per certificate (bulk/CSV issuance, Phase 7, makes a per-transaction charge unworkable). Volume discount tiers (1 credit full price, 2–19 at 30% off, 20+ at 50% off) are stored in `certificate_credit_pricing_tiers` and editable by Admin/Finance at any time, by explicit user request — not a code constant. **Organization registration, KYC review, and approval remain free forever** — this is now `CLAUDE.md` rule #11, not just a blueprint note. Flow B (Premium subscription, unlocks custom certificate templates — see §10) and Flow C (trainee-paid contact-unlock) were scoped in the same conversation but are not yet built.
 
 ## Next to Decide
 
 - Declaration form wording for individual trainers (legal-ish self-attestation language).
+- Flow B (Certified Premium subscription mechanics — manual renewal vs. true recurring billing, mandatory staff review of custom templates before first use, downgrade behavior) and Flow C (trainee contact-unlock's identity verification before a paid claim, SMS OTP provider choice) — both scoped, neither built yet, see docs/build-phases.md Phase 11 items 2–3.

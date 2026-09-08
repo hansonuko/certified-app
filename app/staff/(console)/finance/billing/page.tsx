@@ -3,38 +3,49 @@ import { redirect } from 'next/navigation';
 import { requireStaffSession } from '@/lib/auth/staff';
 import { can } from '@/lib/permissions';
 import { createClient } from '@/lib/supabase/server';
+import { TierRow } from './TierRow';
+import { CurrencyRateRow } from './CurrencyRateRow';
 
-// /staff/finance/billing (docs/build-phases.md Phase 9, item 3). "Plan/
-// pricing config (deferred until monetization)" per docs/sitemap.md §6 —
-// docs/blueprint.md §10 lists "Paid tiers for issuers" as explicitly
-// deferred to future development, so there's no real plan/invoice model to
-// manage yet. Mirrors the issuer-facing placeholder's own minimal style
-// (app/dashboard/billing/page.tsx: "You're on the Free plan.") rather than
-// the generic ComingSoon copy, per that page's own comment about matching
-// docs/sitemap.md's specific wording.
-//
-// Still reads real data rather than being pure static text: organizations.
-// plan (added in supabase/migrations/0009_public_and_finance_views.sql,
-// "next to the first thing that actually reads it") exists today even
-// though nothing sets it to anything but null yet, so a plan-distribution
-// count is honest, real (if trivial) content — and it's the exact shape
-// real plan/invoice management would extend, not a page that has to be
-// rebuilt from scratch when monetization ships.
+// /staff/finance/billing (docs/build-phases.md Phase 9 item 3, now
+// superseded by Phase 11 item 1 — Monetization Flow A). This used to be a
+// "no paid plans yet" placeholder (docs/blueprint.md §10 listed "paid tiers
+// for issuers" as explicitly deferred); certificate credits are the first
+// real thing to configure here, so the placeholder copy is gone. Pricing
+// tier discounts and currency rates are editable live by Admin/Finance —
+// the user-requested capability to adjust discount percentages "at any
+// given time" without a redeploy — each edit writes an AuditLog row
+// (TierRow/CurrencyRateRow's actions.ts).
 export default async function FinanceBillingPage() {
   const { role } = await requireStaffSession();
   if (!can(role, 'manage_billing')) redirect('/staff');
 
   const supabase = await createClient();
-  const { data: orgs } = await supabase.from('organizations_finance_view').select('plan');
 
-  const counts = new Map<string, number>();
+  const [{ data: orgs }, { data: tiers }, { data: rates }, { data: stats }] = await Promise.all([
+    supabase.from('organizations_finance_view').select('plan'),
+    supabase
+      .from('certificate_credit_pricing_tiers')
+      .select('id, min_quantity, max_quantity, discount_percent')
+      .order('min_quantity', { ascending: true }),
+    supabase.from('payment_currency_rates').select('currency, ngn_rate').order('currency', { ascending: true }),
+    supabase.from('certificate_credit_transactions').select('type, quantity, total_amount, currency').eq('type', 'purchase'),
+  ]);
+
+  const planCounts = new Map<string, number>();
   for (const org of orgs ?? []) {
     const label = org.plan ?? 'Free';
-    counts.set(label, (counts.get(label) ?? 0) + 1);
+    planCounts.set(label, (planCounts.get(label) ?? 0) + 1);
+  }
+
+  const creditsSold = (stats ?? []).reduce((sum, row) => sum + row.quantity, 0);
+  const revenueByCurrency = new Map<string, number>();
+  for (const row of stats ?? []) {
+    if (!row.currency || !row.total_amount) continue;
+    revenueByCurrency.set(row.currency, (revenueByCurrency.get(row.currency) ?? 0) + Number(row.total_amount));
   }
 
   return (
-    <main className="flex flex-col gap-6 p-8">
+    <main className="flex flex-col gap-8 p-8">
       <div>
         <Link href="/staff/finance" className="text-sm text-certified-navy underline">
           ← Finance
@@ -42,27 +53,93 @@ export default async function FinanceBillingPage() {
         <h1 className="font-display text-2xl text-certified-navy">Billing</h1>
       </div>
 
-      <p className="text-certified-muted">
-        No paid plans yet — monetization hasn't shipped (docs/blueprint.md §10). Every organization is on the Free
-        plan today; this page is the future home of plan/invoice management once that changes.
-      </p>
+      <section className="flex flex-col gap-2">
+        <h2 className="font-display text-lg text-certified-navy">Certificate credits sold (all-time)</h2>
+        <p className="text-2xl text-certified-navy">{creditsSold.toLocaleString()} credits</p>
+        {revenueByCurrency.size > 0 ? (
+          <ul className="text-sm text-certified-muted">
+            {Array.from(revenueByCurrency.entries()).map(([currency, amount]) => (
+              <li key={currency}>
+                {currency} {amount.toLocaleString()}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-certified-muted">No credit purchases yet.</p>
+        )}
+      </section>
 
-      <table className="w-full max-w-sm text-left text-sm">
-        <thead>
-          <tr className="border-b border-certified-border text-certified-muted">
-            <th className="py-2">Plan</th>
-            <th className="py-2">Organizations</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from(counts.entries()).map(([plan, count]) => (
-            <tr key={plan} className="border-b border-certified-border">
-              <td className="py-2">{plan}</td>
-              <td className="py-2">{count}</td>
+      <section className="flex flex-col gap-3">
+        <div>
+          <h2 className="font-display text-lg text-certified-navy">Certificate-credit pricing tiers</h2>
+          <p className="text-sm text-certified-muted">
+            Base price is ₦1,000/credit. Discount percentages below apply on top of that — edit and save any row,
+            takes effect immediately for every organization&apos;s next checkout.
+          </p>
+        </div>
+        <table className="w-full max-w-md text-left text-sm">
+          <thead>
+            <tr className="border-b border-certified-border text-certified-muted">
+              <th className="py-2">Quantity</th>
+              <th className="py-2">Discount</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(tiers ?? []).map((tier) => (
+              <TierRow
+                key={tier.id}
+                id={tier.id}
+                minQuantity={tier.min_quantity}
+                maxQuantity={tier.max_quantity}
+                discountPercent={Number(tier.discount_percent)}
+              />
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <div>
+          <h2 className="font-display text-lg text-certified-navy">Currency rates ("₦1 = ")</h2>
+          <p className="text-sm text-certified-muted">
+            No live FX feed (docs/build-phases.md Phase 11) — these are manually maintained and should be checked
+            periodically. NGN is the fixed anchor (rate 1) and can&apos;t be edited.
+          </p>
+        </div>
+        <table className="w-full max-w-md text-left text-sm">
+          <thead>
+            <tr className="border-b border-certified-border text-certified-muted">
+              <th className="py-2">Currency</th>
+              <th className="py-2">Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(rates ?? []).map((rate) => (
+              <CurrencyRateRow key={rate.currency} currency={rate.currency} ngnRate={Number(rate.ngn_rate)} />
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="font-display text-lg text-certified-navy">Organizations by plan</h2>
+        <table className="w-full max-w-sm text-left text-sm">
+          <thead>
+            <tr className="border-b border-certified-border text-certified-muted">
+              <th className="py-2">Plan</th>
+              <th className="py-2">Organizations</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from(planCounts.entries()).map(([plan, count]) => (
+              <tr key={plan} className="border-b border-certified-border">
+                <td className="py-2">{plan}</td>
+                <td className="py-2">{count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
     </main>
   );
 }
