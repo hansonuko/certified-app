@@ -5,18 +5,18 @@ verified, what's still open. Read this alongside `docs/build-phases.md`
 (the plan) before starting a new phase; this doc is the "what actually
 happened" complement to that plan.
 
-**Last updated:** 2026-09-08 — Phase 2.75 (#25) and all of Phase 9 (#26–30,
-plus the Finance-reduced-`/staff/organizations`-view gap it surfaced,
-#31/#32) merged; a first production deploy went out (fixing a cron-
-schedule bug along the way, #24); migrations `0024`/`0025` applied live to
-the hosted project. See §18 below for the full recap — this paragraph is
-deliberately short, that section has the detail. **30 PRs merged, 1 open**
-(#31, Finance's reduced organizations view — reviewed, not yet merged by
-the user as of this writing) plus one stale docs-only PR (#23) nobody's
-acted on. `main` builds clean (`tsc`, `npm run build`) as of `633cb1f`/
-`16f91fd`. Phase 8 (trainee self-claim, PRs #20/#21) and the out-of-band
-marketing site (#22) were already done as of the previous update — still
-true, unchanged, see §16/§17.
+**Last updated:** 2026-09-08 — since the previous update: a user-requested
+staff-tooling batch (staff account deactivate + permissions matrix #34,
+Account Manager org assignment/visibility restriction #35, manual org
+entry #36), a security fix that batch's own review surfaced (#37), all
+five of the issuer dashboard's `ComingSoon` placeholders replaced with
+real pages (#38–#41), and a sign-out button for both dashboard shells
+(#42). Migrations `0026`–`0029` applied live and fully re-verified
+against the hosted project afterward (disposable test accounts, all
+cleaned up) — see §19 for the full recap, this paragraph is deliberately
+short. **39 PRs merged, 0 open** from this session's own work, plus one
+stale unrelated docs-only PR (#23) nobody's acted on. `main` builds clean
+(`tsc`, `npm run build`) as of `d2ad534`.
 
 ---
 
@@ -45,12 +45,21 @@ true, unchanged, see §16/§17.
 | 9, item 3 — Finance billing placeholder | ✅ merged | #28 | `/staff/finance/billing` |
 | 9, item 4 — Operational analytics | ✅ merged | #29 | `/staff/analytics` |
 | 9, item 5 — App-wide polish pass (scoped) | ✅ merged | #30 | See §18 for what was/wasn't in scope |
-| — Finance's reduced `/staff/organizations` view | **open, reviewed** | #31 | Not one of Phase 9's 5 named items — a gap flagged since Phase 2.5 (#5), closed here. Waiting on merge |
+| — Finance's reduced `/staff/organizations` view | ✅ merged | #31 | Not one of Phase 9's 5 named items — a gap flagged since Phase 2.5 (#5), closed here |
 | — Fix migration 0025 (column-order bug) | ✅ merged | #32 | See §18 |
+| — Staff account deactivate + permissions matrix | ✅ merged | #34 | `/staff/team` gets a permanent one-way "Deactivate" + a read-only permissions-matrix view. Migration 0026. See §19 |
+| — Account Manager org assignment + visibility restriction | ✅ merged | #35 | `organizations.assigned_account_manager_id`, round-robin auto-assignment, RLS restricts AM to assigned orgs (organizations + applications only). Migration 0027. See §19 |
+| — Manual org entry | ✅ merged | #36 | `/staff/organizations/new` (Admin + AM) — same fields as `/apply`, KYC optional with staff attestation, creates pre-approved. Business/Training Centre only. See §19 |
+| — Security fix: owner-writable AM assignment | ✅ merged | #37 | `#35`'s new column was missing the same owner-write guard `status`/`approved_at`/`approved_by` already had. Migration 0028. See §19 |
+| — Dashboard: Directory Profile | ✅ merged | #38 | Real bio/training-fields editor + public-page preview link |
+| — Dashboard: Settings | ✅ merged | #39 | Profile (read-only), password change, 2FA enroll/remove |
+| — Dashboard: Help + Billing badge | ✅ merged | #40 | Help links to `/contact`/`/faq`; dropped a stale `comingSoon` badge off Billing (page was already correct) |
+| — Dashboard: Messages inbox | ✅ merged | #41 | New `contact_requests` table — the contact/hire relay was email-only before. Migration 0029. See §19 |
+| — Sign-out button, both dashboard shells | ✅ merged | #42 | Closed a gap flagged since #22 |
 
-30 PRs merged, 1 open (#31, awaiting merge) as of this writing, plus a
-stale unrelated docs-only PR (#23) nobody's acted on. `main` builds clean
-(`npx tsc --noEmit`, `npm run build`) as of `16f91fd`.
+39 PRs merged, 0 open (from this session's own work) as of this writing,
+plus a stale unrelated docs-only PR (#23) nobody's acted on. `main` builds
+clean (`npx tsc --noEmit`, `npm run build`) as of `d2ad534`.
 
 ---
 
@@ -66,11 +75,12 @@ would go through at all. `CRON_SECRET` being unset on the Vercel project
 (noted here previously) is still true and still worth fixing before relying
 on the cron firing for real, but it no longer blocks deployment itself.
 Everything through PR #30 (all of Phase 9 + the polish pass) is on
-production as of this writing; #31/#32 (Finance's org view + its migration
-fix) are merged to `main` but not yet in a fresh deploy — redeploying is a
+production as of this writing; **everything since (#31–#42 — the Finance
+org view, the whole staff-tooling batch, all five dashboard fixes, sign-
+out) is merged to `main` but not yet in a fresh deploy** — redeploying is a
 separate, explicit step per `CLAUDE.md`'s free-tier discipline, not
 something that happens automatically on merge (auto-deploy-on-push is
-disabled by design).
+disabled by design). Propose it, don't just do it, next time this comes up.
 
 **Supabase project**: `wvcvzeybvloamkkghckp` (hosted, not local — confirmed
 again this session that the Supabase CLI flat out can't run on this
@@ -82,11 +92,17 @@ project's SQL Editor by the user — see §18 for two fresh lessons learned
 about that this session (the free-tier-quota style verification pattern,
 and a real `CREATE OR REPLACE VIEW` column-ordering bug).
 
-**Migrations `0001`–`0025` all confirmed applied** — `0024`/`0025` this
-session, the rest verified directly in earlier sessions via a throwaway
+**Migrations `0001`–`0029` all confirmed applied** — `0024`–`0029` this
+session (`0026`–`0029` applied by the user, then fully re-verified live —
+see §19 — after this doc's previous update had already covered `0024`/
+`0025`), the rest verified directly in earlier sessions via a throwaway
 script querying real columns/tables through the service-role client (not
 assumed from memory or from what was "sent"). `0025` needed a follow-up
-fix (#32) after its first version failed live — see §18.
+fix (#32) after its first version failed live — see §18. Schema now also
+covers: `organizations.assigned_account_manager_id` (0027, guarded against
+owner edits by 0028), `admin_users.status`'s new `'deactivated'` value
+(0026), and the new `contact_requests` table (0029) — see §19 for all
+three.
 Schema now covers: `organizations` (+ `slug`/`bio`/`training_fields`/pan-
 African address columns), `applications`, `training_programs` (+
 `certificate_validity_months`), `trainees` (+ pan-African location columns,
@@ -731,8 +747,164 @@ the repo.
    migrations is a separate explicit step, not done automatically — next
    session should ask before doing it, same as always.
 
-**Suggested next step**: `docs/build-phases.md` Phase 10 (load-test
-`/verify/[public_id]` and the contact-reveal route, a full pass against
-`docs/blueprint.md` §6's loophole table confirming each mitigation is
-actually implemented rather than just planned, then propose — don't just
-do — a production deploy on the custom domain).
+**Suggested next step (superseded by §19 below — kept for history)**:
+`docs/build-phases.md` Phase 10 (load-test `/verify/[public_id]` and the
+contact-reveal route, a full pass against `docs/blueprint.md` §6's
+loophole table confirming each mitigation is actually implemented rather
+than just planned, then propose — don't just do — a production deploy on
+the custom domain). Still the right call once §19's work below is
+deployed and settled.
+
+---
+
+## 19. User-requested staff tooling, a security fix it surfaced, and all five dashboard placeholders
+
+Picked up directly from a user request (not a numbered `docs/build-
+phases.md` phase): give Admin more staff-account management, restrict
+Account Manager visibility to an assigned "territory" of organizations,
+let staff add organizations manually, and fix five ComingSoon dashboard
+placeholders. Scoped carefully before building anything — see the four
+scoping questions/answers this was built from, summarized in each PR
+below — then built as five small, individually-reviewed PRs plus a
+security fix the second one's own review surfaced.
+
+**Staff account deactivate + permissions matrix (#34).** User chose
+"enhance the existing 3 fixed roles" over a full custom-RBAC rewrite
+(roles stay a Postgres enum, no schema/RLS redesign). Added a permanent,
+one-way "Deactivate" action to `/staff/team` (migration `0026`:
+`admin_status` gets a third value, distinct from suspend/reinstate and
+deliberately not an actual row delete — `audit_log.actor_id` references
+`admin_users`, so deleting would violate that FK or erase the audit
+trail) plus a read-only permissions-matrix view (`getPermissionMatrix()`
+in `lib/permissions.ts`, display-only — `can()` remains the only
+enforcement path).
+
+**Account Manager org assignment + visibility restriction (#35) — the
+big one.** User chose the strict option: an Account Manager only sees
+organizations assigned to them, not a softer label/filter on top of
+unrestricted access; Admin stays unrestricted. Migration `0027` adds
+`organizations.assigned_account_manager_id` and rewrites
+`organizations_staff_all`/`applications_staff_all` (both from Phase 0/1)
+via `ALTER POLICY`. Deliberately **not** extended to certificates,
+trainees, or `/staff/analytics` — those stay platform-wide, matching what
+Phase 9 already shipped and documented. `lib/staff/assign-account-
+manager.ts` picks the assignment: round-robin by fewest-currently-
+assigned among active AMs, or straight to the creator if they're
+themselves an Account Manager (the manual-entry path below).
+
+**Security fix (#37), found while building the next item.** While
+building Directory Profile, noticed `organizations_owner_all` is a
+blanket `for all` RLS policy — an issuer's own session could update *any*
+column on their own org, not just what a dashboard form exposes. The
+existing `guard_organization_status_columns()` trigger already blocked
+`status`/`approved_at`/`approved_by` for exactly this reason;
+`assigned_account_manager_id` (added a trigger-version later, in #35) was
+missed. **Confirmed live** with a real `admin_users` id as the target (a
+bogus id just hits the FK constraint and gives a false negative unrelated
+to the actual gap) that an issuer could in fact rewrite their own org's
+AM assignment before this fix. Migration `0028` extends the trigger.
+Scoped to just this one column per discussion — `rc_number`/`legal_name`/
+`plan` being similarly owner-writable post-approval is a separate,
+pre-existing gap, not fixed here.
+
+**Manual org entry (#36).** `/staff/organizations/new` (Admin + Account
+Manager): same fields as `/apply`, KYC docs optional if staff attests
+"verified out-of-band" with a required note, creates the org already
+`approved` (one action, no separate review step). Scoped to Business/
+Training Centre only — Individual Trainer needs `docs/declaration-
+form.md`'s signed declaration, which only exists as inline JSX in
+`ApplyForm.tsx` today; duplicating that legal text risked two copies
+drifting apart, so it's flagged as a follow-up (extracting it into a
+shared component) rather than done partially. Also had to provision the
+owner's Supabase Auth account itself (`organizations.owner_user_id` is
+`NOT NULL`, and there's no pre-existing applicant session to link to the
+way `/apply` has one) — same temp-password-by-email pattern as
+`inviteStaffMember`.
+
+**Five ComingSoon dashboard placeholders, fixed (#38–#41).** User noticed
+`/dashboard`'s Directory Profile, Messages, Settings, Billing, and Help
+all still showed "coming soon" despite the phases they depend on
+(5, 6) being done. Investigated each rather than assuming they were all
+the same kind of gap:
+- **Directory Profile** (#38) and **Settings** (#39) were genuinely just
+  missing UI — `bio`/`training_fields` have been owner-editable at the
+  RLS level since Phase 0, and profile/password/2FA all reuse Supabase
+  Auth SDK calls already proven working elsewhere (staff's reset-password/
+  enroll-mfa pages). No new schema for either.
+- **Billing** (#40) turned out to be a false alarm — its page already
+  correctly matches `docs/sitemap.md` §5's own deliberately-deferred spec
+  ("You're on the Free plan" placeholder). Only the nav's `comingSoon`
+  badge was stale; dropped it rather than rebuilding a page that was
+  already right. **Help** (#40, same PR) just needed links to the
+  already-existing `/contact`/`/faq` pages.
+- **Messages** (#41) was the real exception: `lib/contact/actions.ts`'s
+  relay (Phase 6) has always been email-only, nothing was ever persisted
+  for an inbox to read. User chose the full fix over a read-only reminder
+  page: migration `0029` adds `contact_requests` (no public INSERT policy
+  at all — writes only ever happen from the vetted relay action's
+  service-role client), the relay action now also persists a row
+  alongside its existing email send (additive, non-fatal on failure), and
+  `/dashboard/messages` is a real list + mark-read inbox. Still no in-app
+  reply — replying stays over email via the relay's own `replyTo`.
+
+**Sign-out button, both dashboard shells (#42).** `lib/auth/actions.ts`'s
+`signOutAction` existed and was wired into the public site header, but
+neither `IssuerShell` nor `StaffShell` ever used it — flagged since the
+marketing-site PR (#22) and never fixed until asked directly. Staff gets
+a separate `signOutStaffAction` landing on `/staff/login` instead of the
+public homepage (a form action's signature is fixed to `(formData) =>
+...` by Next.js, so this couldn't be a parameterized version of the same
+function — a second small function was simpler than fighting that).
+
+**A git mechanics note, not a code bug.** Merging #40 and #41 both hit a
+real (expected, not accidental) merge conflict in `lib/issuer-nav.ts` —
+four of the five dashboard-fix PRs all removed a `comingSoon: true` from
+the same array, on adjacent lines, from branches that diverged before any
+of them merged. Resolved both by hand (kept whichever side's line
+correctly reflected that PR's own change), verified with a clean
+`typecheck`/`build` after each resolution before pushing. Worth expecting
+this pattern again for any batch of small, parallel PRs that all touch
+the same short config-like file.
+
+**Verification pattern, extended further this session.** Same disposable-
+test-account approach as every previous phase, now covering everything
+above in one consolidated post-migration pass once the user confirmed all
+four migrations (`0026`–`0029`) were applied: two disposable Account
+Manager accounts + two disposable orgs confirmed the AM visibility
+restriction holds in both directions: `admin_users.status` accepts
+`'deactivated'`; an owner's attempt to rewrite `assigned_account_manager_
+id` is correctly blocked (with the fix) and the value is confirmed
+unchanged afterward; a `contact_requests` row is visible to its own org's
+owner and to staff, invisible to a *different* org's owner, and mark-read
+works. All 10 checks passed; every piece of test data (accounts, orgs,
+the test message) was deleted afterward — confirmed, not assumed.
+
+**Still open, not silently dropped:**
+1. **Not yet redeployed.** Everything in this section (#31–#42) is on
+   `main`, not yet in a fresh Vercel deploy — see §2. Propose it, don't
+   just do it.
+2. **The ~40 existing staff-console/issuer-dashboard pages' inline
+   buttons/inputs/tables** still aren't retrofitted to the shared `Card`/
+   `IconButton` components from the polish pass (#30) — unchanged from
+   the previous update, still deferred.
+3. **`rc_number`/`legal_name`/`plan`** are still owner-writable post-
+   approval with no staff-review guard (§ "Security fix" above) — a real,
+   pre-existing gap, explicitly out of scope for #37's fix, not tracked
+   as a numbered follow-up anywhere yet.
+4. **Individual Trainer manual org entry** isn't supported (#36) —
+   depends on extracting the declaration text out of `ApplyForm.tsx` into
+   something shareable first.
+5. **`CRON_SECRET` is still not set on the Vercel project** — unchanged
+   from the previous update.
+
+**Suggested next step**: propose (don't just do) a fresh production
+deploy to pick up #31–#42, then `docs/build-phases.md` Phase 10 (load-test
+`/verify/[public_id]` + the contact-reveal route, a full pass against
+`docs/blueprint.md` §6's loophole table). The security-fix pattern this
+session surfaced (a new owner-writable column with no guard) is also
+worth a specific pass of its own before Phase 10's broader loophole-table
+review — check every column added to `organizations`/`trainees` since
+Phase 0 against `guard_organization_status_columns()`'s (and any
+equivalent trainee-side trigger's) coverage, rather than relying on
+each one being caught individually like `assigned_account_manager_id`
+was.
