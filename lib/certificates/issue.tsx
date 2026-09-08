@@ -2,6 +2,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { uploadCertificatePdf } from '@/lib/storage/certificate-pdf';
+import { spendCertificateCredit, refundCertificateCredit } from '@/lib/payments/credits';
 import { generatePublicId } from './public-id';
 import { signCertificate } from './sign';
 import { CERTIFICATE_TEMPLATES, type TemplateId } from './templates';
@@ -13,6 +14,16 @@ import type { BrandConfig, CertificateData } from './types';
  * (Phase 4) so the bulk issuance processor (Phase 7 item 2,
  * lib/bulk-issuance/processor.ts) can call the exact same logic per row
  * instead of a second, drifting copy of it.
+ *
+ * Monetization Flow A (docs/build-phases.md Phase 11 item 1) gates here
+ * too, not in either caller: one certificate credit is spent atomically
+ * before anything is rendered/uploaded (params.adminClient is always
+ * service-role, so this check can't be bypassed from either call site), and
+ * refunded if the certificate ultimately fails to get created — an issuer
+ * should never lose a credit for a certificate that was never actually
+ * issued. This is deliberately independent of `organizations.status`
+ * (CLAUDE.md rule #1) — approval and credits gate two different things
+ * (whether you may issue at all, vs. whether you've paid for this one).
  */
 
 const MAX_PUBLIC_ID_ATTEMPTS = 5;
@@ -56,6 +67,25 @@ export type IssueCertificateParams = {
 export type IssueCertificateResult = { certificateId: string; publicId: string } | { error: string };
 
 export async function issueCertificate(params: IssueCertificateParams): Promise<IssueCertificateResult> {
+  const hasCredit = await spendCertificateCredit(params.adminClient, params.orgId);
+  if (!hasCredit) {
+    return { error: 'Insufficient certificate credits — top up in Billing to continue issuing certificates.' };
+  }
+
+  let result: IssueCertificateResult;
+  try {
+    result = await issueCertificateAfterCreditCheck(params);
+  } catch (err) {
+    await refundCertificateCredit(params.adminClient, params.orgId, 'Issuance threw before completing');
+    throw err;
+  }
+  if ('error' in result) {
+    await refundCertificateCredit(params.adminClient, params.orgId, result.error);
+  }
+  return result;
+}
+
+async function issueCertificateAfterCreditCheck(params: IssueCertificateParams): Promise<IssueCertificateResult> {
   const issueDate = new Date().toISOString().slice(0, 10);
   const TemplateComponent = CERTIFICATE_TEMPLATES[params.templateId];
 

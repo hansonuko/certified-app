@@ -18,7 +18,7 @@ export default async function BulkIssuePage({ params }: { params: Promise<{ id: 
     supabase.from('training_programs').select('id, title').eq('id', id).eq('org_id', orgId).maybeSingle(),
     supabase
       .from('organizations')
-      .select('brand_template_id, brand_signatory_name, brand_primary_color')
+      .select('brand_template_id, brand_signatory_name, brand_primary_color, certificate_credits')
       .eq('id', orgId)
       .single(),
   ]);
@@ -41,12 +41,22 @@ export default async function BulkIssuePage({ params }: { params: Promise<{ id: 
     );
   }
 
+  const credits = org?.certificate_credits ?? 0;
+
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-6 sm:p-8">
       <div>
         <h1 className="font-display text-2xl text-certified-navy">Bulk issue (CSV)</h1>
         <p className="text-certified-muted">For: {program.title}</p>
       </div>
+      <p className={credits < 1 ? 'rounded-control border border-certified-warning bg-certified-surface-2 px-4 py-3 text-sm text-certified-ink' : 'text-xs text-certified-muted'}>
+        {credits} certificate credit{credits === 1 ? '' : 's'} remaining — one is spent per row that succeeds. Rows
+        beyond your balance will fail with a clear reason, not silently skip.{' '}
+        <Link href="/dashboard/billing" className="underline">
+          Manage billing
+        </Link>
+        .
+      </p>
       <BulkIssueForm programId={id} />
     </main>
   );
