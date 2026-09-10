@@ -124,11 +124,11 @@ Each template is a `@react-pdf/renderer` component in `lib/certificates/template
 
 ## 5. The Certified gold seal (spec)
 
-- No standalone SVG asset file — the seal lives only as code, in two parallel implementations kept in sync by hand:
-  - PDF: `lib/certificates/GoldSeal.tsx` — built on `@react-pdf/renderer`'s `<Svg>` primitives, so it only renders inside a react-pdf document, not in a browser. Straight (not arced) "CERTIFIED" lettering, since react-pdf's SVG layer doesn't support `<textPath>`.
-  - Web: `components/GoldSeal.tsx` — plain React + browser SVG, for anywhere outside a PDF: verification page header, "Approved Issuer" badge, marketing site. "CERTIFIED" arcs along the top via a real `<textPath>`, since browsers support it.
-  - Both share the same disc/gradient/ring/watermark: radial foil-gold disc, thin single ring, bold serif "CERTIFIED" lettering, with a low-opacity star + ring watermark sitting behind the lettering (not competing with it) at the center. No scalloped edge, no secondary hairline rings, no "VERIFIED TRAINING" subtext — kept to as few visual elements as will still read as a seal.
-- Colors: warm gold gradient family (`#FCF3D6` → `#EFCB6E` → `#C9992E` → `#8A6212`), fixed — never recolored to match issuer brand.
+- Real artwork, not code-drawn: `public/brand/certified-seal.jpg` (the gold medallion, "CERTIFIED · TRUST · QUALITY · EXCELLENCE · DIGITAL VERIFICATION"), embedded identically by two parallel components:
+  - PDF: `lib/certificates/GoldSeal.tsx` — `@react-pdf/renderer`'s `<Image>`, fetched by absolute URL built from `NEXT_PUBLIC_APP_URL` (react-pdf's asset loader always fetches by URL, same reasoning as `lib/certificates/fonts.ts`'s font loading).
+  - Web: `components/GoldSeal.tsx` — a plain `<img src="/brand/certified-seal.jpg">`, for anywhere outside a PDF: verification page header, "Approved Issuer" badge, marketing site.
+  - Both crop the source image to a circle (`border-radius` + `object-fit: cover`) so it reads as a clean medallion regardless of the certificate/page background behind it — the source file itself sits on a light square backdrop.
+- Colors: fixed by the artwork itself — never recolored to match issuer brand.
 - Placement: bottom-right by default (a few templates place it elsewhere per their own layout — Block and Split — but always at a fixed spot per template, never issuer-configurable), fixed size ratio relative to page (~9% of page width), never resized smaller than legibility allows, never rotated, never overlapped by other content. The size ratio is a certificate-layout rule; standalone badge/header uses of `components/GoldSeal.tsx` aren't held to it.
 - The same artwork is reused everywhere the platform needs to represent its own trust mark: verification page header, "Approved Issuer" badge, marketing site (via `components/GoldSeal.tsx`), and certificate PDFs (via `lib/certificates/GoldSeal.tsx`).
 
