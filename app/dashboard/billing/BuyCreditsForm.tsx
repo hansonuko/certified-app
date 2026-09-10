@@ -1,12 +1,17 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { initiateCreditPurchase, initiateFlutterwaveCharge, type BuyCreditsState } from './actions';
+import {
+  initiateCreditPurchase,
+  initiateFlutterwaveCharge,
+  initiateFlutterwaveVirtualAccount,
+  type BuyCreditsState,
+} from './actions';
 import { getMobileMoneyNetworksForCountry, USSD_BANKS } from '@/lib/payments/flutterwave-options';
 
 const QUICK_AMOUNTS = [1, 10, 20, 50];
 
-type FlutterwaveMethod = 'card' | 'mobile_money' | 'ussd';
+type FlutterwaveMethod = 'card' | 'mobile_money' | 'ussd' | 'opay' | 'bank_account' | 'virtual_account';
 
 export function BuyCreditsForm({ initialQuantity = 20, orgCountry = null }: { initialQuantity?: number; orgCountry?: string | null }) {
   const [quantity, setQuantity] = useState(initialQuantity);
@@ -19,17 +24,32 @@ export function BuyCreditsForm({ initialQuantity = 20, orgCountry = null }: { in
     initiateFlutterwaveCharge,
     null,
   );
+  // Dynamically generated virtual accounts (lib/payments/flutterwave-
+  // virtual-accounts.ts) go through a genuinely different Flutterwave
+  // endpoint than card/mobile money/USSD/opay/bank_account, so they're a
+  // separate server action — dispatched to below based on which method is
+  // selected, while staying inside the one visual "Flutterwave" form/card.
+  const [virtualAccountState, virtualAccountAction, virtualAccountPending] = useActionState<BuyCreditsState, FormData>(
+    initiateFlutterwaveVirtualAccount,
+    null,
+  );
 
   const payLabel = quantity === 1 ? 'Pay for certificate' : `Pay for ${quantity} certificates`;
 
   // Mobile money is only offered for the currencies Flutterwave actually
   // supports it in, given this app's supported billing currencies
   // (lib/payments/currency.ts) — Nigerian orgs don't see it at all, same as
-  // USSD is Nigeria-only below. See lib/payments/flutterwave-options.ts.
+  // USSD/opay/bank_account/virtual accounts are Nigeria-only below. See
+  // lib/payments/flutterwave-options.ts.
   const mobileMoneyNetworks = getMobileMoneyNetworksForCountry(orgCountry);
   const isNigeria = orgCountry === 'Nigeria';
-  const flutterwaveError = flutterwaveState && 'error' in flutterwaveState ? flutterwaveState.error : undefined;
-  const flutterwaveInstructions = flutterwaveState && 'instructions' in flutterwaveState ? flutterwaveState.instructions : undefined;
+
+  const isVirtualAccount = flutterwaveMethod === 'virtual_account';
+  const currentAction = isVirtualAccount ? virtualAccountAction : flutterwaveAction;
+  const currentState = isVirtualAccount ? virtualAccountState : flutterwaveState;
+  const currentPending = isVirtualAccount ? virtualAccountPending : flutterwavePending;
+  const flutterwaveError = currentState && 'error' in currentState ? currentState.error : undefined;
+  const flutterwaveInstructions = currentState && 'instructions' in currentState ? currentState.instructions : undefined;
 
   return (
     <div className="flex flex-col gap-4">
@@ -87,7 +107,7 @@ export function BuyCreditsForm({ initialQuantity = 20, orgCountry = null }: { in
           </button>
         </form>
       ) : (
-        <form action={flutterwaveAction} className="flex flex-col gap-4 rounded-card border border-certified-border p-4">
+        <form action={currentAction} className="flex flex-col gap-4 rounded-card border border-certified-border p-4">
           <input type="hidden" name="quantity" value={quantity} />
           <input type="hidden" name="flutterwave_method" value={flutterwaveMethod} />
 
@@ -120,6 +140,28 @@ export function BuyCreditsForm({ initialQuantity = 20, orgCountry = null }: { in
                     <label className="flex items-center gap-2">
                       <input type="radio" checked={flutterwaveMethod === 'ussd'} onChange={() => setFlutterwaveMethod('ussd')} />
                       USSD
+                    </label>
+                  ) : null}
+                  {isNigeria ? (
+                    <label className="flex items-center gap-2">
+                      <input type="radio" checked={flutterwaveMethod === 'bank_account'} onChange={() => setFlutterwaveMethod('bank_account')} />
+                      Pay with bank
+                    </label>
+                  ) : null}
+                  {isNigeria ? (
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        checked={flutterwaveMethod === 'virtual_account'}
+                        onChange={() => setFlutterwaveMethod('virtual_account')}
+                      />
+                      Bank transfer
+                    </label>
+                  ) : null}
+                  {isNigeria ? (
+                    <label className="flex items-center gap-2">
+                      <input type="radio" checked={flutterwaveMethod === 'opay'} onChange={() => setFlutterwaveMethod('opay')} />
+                      OPay
                     </label>
                   ) : null}
                   {mobileMoneyNetworks.length > 0 ? (
@@ -210,6 +252,24 @@ export function BuyCreditsForm({ initialQuantity = 20, orgCountry = null }: { in
                 </label>
               ) : null}
 
+              {flutterwaveMethod === 'bank_account' ? (
+                <p className="text-xs text-certified-muted">
+                  You&apos;ll be redirected to pick your bank and authorize the debit (internet banking, OTP, or your
+                  bank&apos;s own USSD code) — nothing to fill in here.
+                </p>
+              ) : null}
+
+              {flutterwaveMethod === 'virtual_account' ? (
+                <p className="text-xs text-certified-muted">
+                  We&apos;ll generate a one-time account number for this exact amount — transfer into it from your own
+                  banking app, and your balance updates once the transfer is confirmed.
+                </p>
+              ) : null}
+
+              {flutterwaveMethod === 'opay' ? (
+                <p className="text-xs text-certified-muted">You&apos;ll be redirected to OPay to authorize the payment — nothing to fill in here.</p>
+              ) : null}
+
               {flutterwaveMethod === 'mobile_money' ? (
                 <div className="flex flex-col gap-3">
                   <label className="flex flex-col gap-1 text-sm text-certified-ink">
@@ -253,10 +313,10 @@ export function BuyCreditsForm({ initialQuantity = 20, orgCountry = null }: { in
 
               <button
                 type="submit"
-                disabled={flutterwavePending}
+                disabled={currentPending}
                 className="self-start rounded-control bg-certified-navy px-4 py-2 text-white disabled:opacity-50"
               >
-                {flutterwavePending ? 'Processing…' : payLabel}
+                {currentPending ? 'Processing…' : payLabel}
               </button>
             </>
           )}

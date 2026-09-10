@@ -10,6 +10,7 @@ import { resolveCurrencyForCountry, getNgnRate, convertFromNgn } from '@/lib/pay
 import { generatePaymentReference } from '@/lib/payments/reference';
 import { getProvider, isProviderId, type ProviderId } from '@/lib/payments';
 import { createDirectCharge, type FlutterwavePaymentMethod } from '@/lib/payments/flutterwave';
+import { createVirtualAccount } from '@/lib/payments/flutterwave-virtual-accounts';
 import { isKnownMobileMoneyNetwork, isKnownUssdBankCode } from '@/lib/payments/flutterwave-options';
 import { confirmFlutterwaveChargeByReference } from '@/lib/payments/confirm';
 
@@ -37,7 +38,7 @@ async function quoteAndRecordPendingPurchase(
   orgId: string,
   quantity: number,
   provider: ProviderId,
-  paymentMethod?: 'card' | 'mobile_money' | 'ussd',
+  paymentMethod?: 'card' | 'mobile_money' | 'ussd' | 'opay' | 'bank_account' | 'virtual_account',
 ): Promise<PendingPurchaseQuote | { error: string }> {
   const { data: org } = await supabase
     .from('organizations')
@@ -155,15 +156,18 @@ function readFlutterwaveMethod(formData: FormData): { method: FlutterwavePayment
     return { method: { type: 'ussd', ussd: { accountBank } } };
   }
 
+  if (type === 'opay') return { method: { type: 'opay' } };
+  if (type === 'bank_account') return { method: { type: 'bank_account' } };
+
   return { error: 'Select a payment method.' };
 }
 
-/** Mobile money/USSD only make sense in the currency Flutterwave actually offers them for (lib/payments/flutterwave-options.ts) — cross-checked against the org's own resolved billing currency, not trusted from which sub-form the client happened to submit. */
+/** Mobile money/USSD/opay/bank_account only make sense in the currency Flutterwave actually offers them for (lib/payments/flutterwave-options.ts, lib/payments/flutterwave.ts) — cross-checked against the org's own resolved billing currency, not trusted from which sub-form the client happened to submit. */
 function methodMatchesCurrency(method: FlutterwavePaymentMethod, currency: string): boolean {
   if (method.type === 'mobile_money') {
     return (method.mobileMoney.countryCode === '233' && currency === 'GHS') || (method.mobileMoney.countryCode === '254' && currency === 'KES');
   }
-  if (method.type === 'ussd') return currency === 'NGN';
+  if (method.type === 'ussd' || method.type === 'opay' || method.type === 'bank_account') return currency === 'NGN';
   return true; // card isn't currency-restricted in this app
 }
 
@@ -239,4 +243,52 @@ export async function initiateFlutterwaveCharge(_prev: BuyCreditsState, formData
     };
   }
   return { error: result.message };
+}
+
+/**
+ * Dynamically generated virtual account for bank transfer
+ * (lib/payments/flutterwave-virtual-accounts.ts) — architecturally separate
+ * from initiateFlutterwaveCharge above (a different pair of Flutterwave
+ * endpoints, not /orchestration/direct-charges), so it's its own action
+ * rather than another branch of readFlutterwaveMethod/createDirectCharge.
+ * BuyCreditsForm.tsx picks this action instead of the charge one when the
+ * issuer selects "Bank transfer" as their Flutterwave method.
+ *
+ * NGN only for now — see lib/payments/flutterwave-virtual-accounts.ts's
+ * file header for why, and for the real gap this method has today: it can
+ * only ever confirm via webhook (no polling fallback exists for it), and
+ * FLUTTERWAVE_WEBHOOK_SECRET_HASH is still unset (docs/session-handoff.md
+ * §22) — until that's configured, a virtual-account top-up will sit
+ * pending until staff manually adjust it (/staff/finance/wallets).
+ */
+export async function initiateFlutterwaveVirtualAccount(_prev: BuyCreditsState, formData: FormData): Promise<BuyCreditsState> {
+  const { orgId } = await requireApprovedIssuerSession();
+  const supabase = await createClient();
+
+  const quantity = readQuantity(formData);
+  if (quantity === null) return { error: 'Enter a whole number of certificate credits (1 or more).' };
+
+  const quote = await quoteAndRecordPendingPurchase(supabase, orgId, quantity, 'flutterwave', 'virtual_account');
+  if ('error' in quote) return quote;
+
+  if (quote.currency !== 'NGN') {
+    return { error: "Bank transfer via virtual account is only available for Nigerian organizations right now — try card instead." };
+  }
+
+  const [firstName, ...rest] = quote.org.display_name.split(' ');
+  const result = await createVirtualAccount({
+    reference: quote.reference,
+    amount: quote.amount,
+    currency: 'NGN',
+    customerEmail: quote.org.owner_email,
+    customerName: { first: firstName || quote.org.display_name, last: rest.join(' ') || firstName || quote.org.display_name },
+    narration: `${quote.org.display_name} — Certified Africa credits`,
+  });
+
+  if ('error' in result) return { error: result.error };
+
+  const expiry = result.expiresAt ? ` before ${new Date(result.expiresAt).toLocaleString()}` : '';
+  return {
+    instructions: `Transfer ${quote.amount.toLocaleString()} ${quote.currency} to account ${result.accountNumber} (${result.bankName})${expiry}. Your balance updates automatically once the transfer is confirmed — this can take a few minutes.`,
+  };
 }
