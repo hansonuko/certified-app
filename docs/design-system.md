@@ -124,9 +124,9 @@ Each template is a `@react-pdf/renderer` component in `lib/certificates/template
 
 ## 5. The Certified gold seal (spec)
 
-- Real artwork, not code-drawn: `public/brand/certified-seal.jpg` (the gold medallion, "CERTIFIED · TRUST · QUALITY · EXCELLENCE · DIGITAL VERIFICATION"), embedded identically by two parallel components:
+- Real artwork, not code-drawn: `public/brand/certified-seal.png` (the gold medallion, "CERTIFIED · TRUST · QUALITY · EXCELLENCE · DIGITAL VERIFICATION"), embedded identically by two parallel components:
   - PDF: `lib/certificates/GoldSeal.tsx` — `@react-pdf/renderer`'s `<Image>`, fetched by absolute URL built from `NEXT_PUBLIC_APP_URL` (react-pdf's asset loader always fetches by URL, same reasoning as `lib/certificates/fonts.ts`'s font loading).
-  - Web: `components/GoldSeal.tsx` — a plain `<img src="/brand/certified-seal.jpg">`, for anywhere outside a PDF: verification page header, "Approved Issuer" badge, marketing site.
+  - Web: `components/GoldSeal.tsx` — a plain `<img src="/brand/certified-seal.png">`, for anywhere outside a PDF: verification page header, "Approved Issuer" badge, marketing site.
   - Both crop the source image to a circle (`border-radius` + `object-fit: cover`) so it reads as a clean medallion regardless of the certificate/page background behind it — the source file itself sits on a light square backdrop.
 - Colors: fixed by the artwork itself — never recolored to match issuer brand.
 - Placement: bottom-right by default (a few templates place it elsewhere per their own layout — Block and Split — but always at a fixed spot per template, never issuer-configurable), fixed size ratio relative to page (~9% of page width), never resized smaller than legibility allows, never rotated, never overlapped by other content. The size ratio is a certificate-layout rule; standalone badge/header uses of `components/GoldSeal.tsx` aren't held to it.

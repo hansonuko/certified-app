@@ -6,10 +6,11 @@
  * verification page header, "Approved Issuer" badge, marketing site.
  *
  * Renders the platform's actual seal artwork, `public/brand/certified-
- * seal.jpg` — the exact same file `lib/certificates/GoldSeal.tsx` embeds in
- * PDF output. Cropped to a circle via `objectFit: cover` + full border-
- * radius (the source image sits on a light square backdrop) so it reads as
- * a clean medallion on any background, light or dark.
+ * seal.png` — the exact same file `lib/certificates/GoldSeal.tsx` embeds in
+ * PDF output. Background already removed (transparent PNG, via a
+ * flood-fill + morphological-opening script run once at asset-prep time,
+ * not at render time) — reads cleanly on any surface, light or dark,
+ * without needing a circular crop or backdrop chip.
  *
  * `idPrefix` is a legacy prop from the old hand-drawn-SVG version, which
  * needed it to namespace `<defs>` ids so multiple seals could render on one
@@ -27,17 +28,11 @@ export function GoldSeal({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="/brand/certified-seal.jpg"
+      src="/brand/certified-seal.png"
       alt="Certified gold seal"
       width={size}
       height={size}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        objectFit: 'cover',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-      }}
+      style={{ width: size, height: size, objectFit: 'contain' }}
     />
   );
 }

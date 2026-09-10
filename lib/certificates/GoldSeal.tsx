@@ -15,17 +15,12 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
  * the design system's ~9%-of-page-width rule.
  *
  * This is the PDF-only half of the seal — the actual platform artwork,
- * `public/brand/certified-seal.jpg`. The browser equivalent is
- * `components/GoldSeal.tsx`, which renders the exact same file. Cropped to
- * a circle here (the source image itself sits on a light square backdrop)
- * so it reads as a clean medallion regardless of the certificate's own
- * background.
+ * `public/brand/certified-seal.png`. The browser equivalent is
+ * `components/GoldSeal.tsx`, which renders the exact same file. Background
+ * already removed (transparent PNG, via a flood-fill + morphological-
+ * opening script run once at asset-prep time, not at render time) — no
+ * runtime cropping needed.
  */
 export function GoldSeal({ size = 112 }: { size?: number }) {
-  return (
-    <Image
-      src={`${APP_URL}/brand/certified-seal.jpg`}
-      style={{ width: size, height: size, borderRadius: size / 2, objectFit: 'cover' }}
-    />
-  );
+  return <Image src={`${APP_URL}/brand/certified-seal.png`} style={{ width: size, height: size, objectFit: 'contain' }} />;
 }
