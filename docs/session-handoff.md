@@ -5,35 +5,22 @@ verified, what's still open. Read this alongside `docs/build-phases.md`
 (the plan) before starting a new phase; this doc is the "what actually
 happened" complement to that plan.
 
-**Last updated:** 2026-09-08 — this doc had fallen behind `main` by nine
-merged PRs before this update (§20–22 above still described Monetization
-Flow A as "not yet a PR" long after it, and everything through PR #53, had
-actually shipped) — corrected here, then this session's own work (Flutterwave
-multi-method payments, §24) added on top. In order: **PR #44** merged Flow A
-itself (§20); **PR #45** was a docs-only handoff update; **PR #46** built
-staff wallet management (§21); **PR #47** was another docs-only update plus
-the first production redeploy with live payment credentials (§22); **PR #48**
-made Wallets its own staff sidebar nav item; a direct-to-main guard-trigger
-security fix (service-role calls were being wrongly blocked by the same
-owner-write guard `0030` added — see §23) landed alongside **PR #50**, which
-also added `/apply` save-and-continue-later and made the sitewide "become an
-issuer" CTAs status-aware; **PR #51** added organization/issuer search to the
-public directory; **PR #52** hid those same apply CTAs sitewide for anyone
-who's already applied; **PR #53** added a light/dark theme toggle to both
-dashboard shells. See §23 for the consolidated recap of #46–53 (§21's own
-entry already covers #46 in full). **This session**: Flutterwave's checkout
-was card-only — added mobile money and USSD as real alternatives (a third
-option, bank transfer, was attempted, hit a real live error, and was
-removed — see below), branch `flutterwave-multi-method-payments`, **PR #54,
-not yet merged** — see §24. **Then the user tested it live** and hit exactly
-the kind of bug this section exists to catch: a real `Cannot POST
-/orchestration/direct-charges` error, which turned out to mean the whole
-file had been hitting the wrong Flutterwave host since the original card-
-only implementation — see §24's update for the full diagnosis (wrong API
-host, wrong charge-status string, and bank_transfer isn't a requestable
-payment method at all). `main` builds clean (`tsc`, `npm run build`,
-`npm test` — 20/20) as of `4a93fe9` (PR #53); PR #54's branch builds equally
-clean on top of it, now with these fixes included.
+**Last updated:** 2026-09-10 — **PR #54 (§24, Flutterwave multi-method
+payments) has since merged to `main`** — this doc's previous update still
+called it "pending review"; `main` now sits at `a78bdf9`. This session
+picked up fresh from there with two unrelated pieces of work, both on branch
+`brand-refresh-and-flutterwave-methods`, not yet a PR — see §25: (1) the
+platform's gold seal and wordmark logo, previously hand-drawn code (SVG for
+the seal, styled text for the logo), replaced with real supplied artwork
+(`public/brand/certified-seal.jpg`, `certified-logo.jpg`) across every
+surface that renders either — certificate PDFs, the verification page, the
+site header/footer, marketing pages, directory profiles; (2) three more
+Flutterwave v4 payment methods — Opay, an instant NGN bank-account debit
+("pay with bank"), and dynamically generated virtual accounts for bank
+transfer — researched from Flutterwave's own OpenAPI reference this time
+(higher-confidence than §24's third-party cross-referencing), but, like
+everything else in this integration, still unverified against a live call.
+`tsc`/`build`/`test` (20/20) all clean on this branch as of this writing.
 
 ---
 
@@ -157,8 +144,35 @@ None of this touches Paystack, which remains the higher-confidence, already-live
 1. The very next live payment attempt is the real verification this fix needs — watch it closely.
 2. Confirm migration `0031` is applied (see above) before that attempt.
 3. A real sandbox-credentialed test pass remains the ideal (per §20's original recommendation) but has never been available; live testing with real money remains the only option so far.
-4. Not merged — **PR #54 is open, waiting on explicit merge approval**, per usual, even though it's now deployed to the production Vercel alias.
+4. ~~Not merged — PR #54 is open, waiting on explicit merge approval~~ — **merged**, see §25's header update.
 5. Everything else from §20/§23's still-open lists (Flutterwave webhook secret unset, `CRON_SECRET` unset, migration `0035` still pending) is unchanged by this section.
+
+---
+
+## 25. Brand refresh (real seal/logo artwork) + three more Flutterwave payment methods (branch `brand-refresh-and-flutterwave-methods`, not yet a PR)
+
+Two unrelated pieces of work from the same session, picked up fresh after PR #54 merged.
+
+**1. Real seal/logo artwork, replacing hand-drawn code.** User-supplied images — `public/brand/certified-seal.jpg` (the gold medallion) and `certified-logo.jpg` (the Africa-map wordmark) — replace what were previously code-drawn SVG (the seal, `lib/certificates/GoldSeal.tsx` / `components/GoldSeal.tsx`) and styled text (the header/footer logo, `components/Logo.tsx`). CLAUDE.md rule #2 and `docs/design-system.md` §5 updated to describe the new implementation — the rule itself (mandatory, non-configurable, fixed position, never recolored/resized by issuer brand settings) is unchanged, only what backs it.
+- **Seal**: both `GoldSeal` components now render the same JPEG, cropped to a circle via `border-radius` + `object-fit: cover` (the source image sits on a light square backdrop) — react-pdf's `<Image>` fetched by absolute URL, same pattern `lib/certificates/fonts.ts` already established for the `.ttf` files and for the same reason (no origin to resolve a relative path against, server-side). Cascades everywhere `GoldSeal` renders: all 10 certificate templates, the verification page, "Approved Issuer" badges, marketing pages, directory profiles.
+- **Logo**: `components/Logo.tsx` (header + footer only — confirmed via grep, nowhere else uses it) now renders the wordmark image wrapped in a small white rounded chip, since the source image's own light backdrop would otherwise show as a visible seam on the dark-mode header/footer surface (`app/globals.css`'s `--certified-surface` flips to near-black under `prefers-color-scheme: dark` / the manual toggle).
+- **Verified**: `tsc`/`build`/`test` all clean. Live-checked in the browser (fresh tab, past a stale-cache false alarm — the very first check was against a cached pre-change page) — header/footer chip and the verify-page seal both confirmed visually correct. More importantly, **issued a real test certificate through the actual dashboard** (disposable trainee "Seal Test Trainee", program `0083c42b-de17-4249-8212-7f592263f263`, cert `CERT-32PXA-CW8J`, spent one real credit from Phlem Media's live balance) and downloaded the resulting PDF — the new seal renders correctly, cleanly cropped, in the actual react-pdf output. This is real data on the hosted project, not cleaned up (revoking it would itself be a second live write, and CLAUDE.md's "ask before" spirit argued for surfacing it rather than unilaterally acting again) — flagging here rather than silently leaving it: worth deciding whether to revoke it or leave it as a harmless disposable-test artifact, same as this project's other disposable-test orgs/data.
+
+**2. Three more Flutterwave v4 payment methods** — the user asked whether Flutterwave supports direct bank transfer, dynamically generated virtual accounts, and Opay/regional mobile wallets, and to build in whatever it does support. Researched this time from Flutterwave's own OpenAPI reference (`developer.flutterwave.com/reference/*.md` — the raw-content suffix `llms.txt` points to), a higher-confidence source than §24's third-party GitHub cross-referencing, though still never exercised against a live call (no sandbox has ever been available, unchanged from every prior Flutterwave entry in this doc).
+- **Opay** and **bank_account** ("pay with bank" — an instant NGN bank debit via Flutterwave's Mono-powered redirect, the payer picks their bank and authorizes on Mono's page) — both added to `lib/payments/flutterwave.ts`'s `FlutterwavePaymentMethod` union. Both request with an empty body object (`{opay: {}}` / `{bank_account: {}}`) and resolve via the same `next_action.redirect_url` shape card's 3DS step already handles — no new request/response plumbing needed beyond the union itself. Both NGN-only, enforced in `app/dashboard/billing/actions.ts`'s `methodMatchesCurrency`, matching USSD's existing gating.
+- **Dynamically generated virtual accounts** (Pay With Bank Transfer / PWBT) — genuinely a different pair of endpoints (`POST /customers` then `POST /virtual-accounts`, not `/orchestration/direct-charges`), new file `lib/payments/flutterwave-virtual-accounts.ts`. New server action `initiateFlutterwaveVirtualAccount` (separate from `initiateFlutterwaveCharge` — different enough to not force into the same dispatcher), new UI branch in `BuyCreditsForm.tsx` ("Bank transfer," dispatching to a second `useActionState` while staying inside the one visual Flutterwave card). **Scoped to NGN only** — the endpoint itself also documents GHS/EGP/KES/MAD/ZAR, but KES requires an extra `customer_account_number` field this codebase has no verified meaning for yet; same "start narrow" scoping mobile money already uses for GHS/KES.
+  - **A real, structural gap, flagged plainly rather than shipped silently**: a virtual account's own `GET /virtual-accounts/{id}` status field only reflects the account's active/inactive *lifecycle*, never whether a transfer actually landed (confirmed against the OpenAPI reference) — unlike every other method here, there is no `getCharge()`-style polling fallback for this one. The *only* way a virtual-account top-up ever confirms is the `charge.completed` webhook. **`FLUTTERWAVE_WEBHOOK_SECRET_HASH` is still unset and no webhook is configured on the Flutterwave dashboard** (§22) — until that's done, a virtual-account payment will sit `pending` forever, recoverable only via `/staff/finance/wallets`' manual adjustment. This is a harder blocker than "untested" — it's "cannot complete at all yet" — and should be treated as a prerequisite, not a nice-to-have, before this method reaches a real payer.
+- **Migration `0037`** (not yet applied to the hosted project): widens `payments.payment_method`'s check constraint from `(card, mobile_money, ussd, bank_transfer)` to add `opay`, `bank_account`, `virtual_account` — same purely-additive, reconciliation-only column `0036` introduced, nothing downstream reads it yet.
+- Refactored `lib/payments/flutterwave.ts`'s OAuth token cache/host/JSON-parsing helpers into a new shared `lib/payments/flutterwave-client.ts` so the virtual-accounts file (different endpoints, same host/auth) doesn't duplicate a second independently-caching token store.
+
+**Verified**: `tsc`/`build`/`test` (20/20) all clean. UI confirmed live in the browser — all three new radio options ("Pay with bank," "Bank transfer," "OPay") render correctly for a Nigerian test org, gated off correctly for non-Nigerian ones (unchanged mobile-money/USSD gating pattern). **No live charge, customer, or virtual account was created against Flutterwave for any of the three new methods** — deliberately not exercised, consistent with every prior Flutterwave addition in this project (build carefully, document the unverified status plainly, let the user decide when to spend real money/quota on the actual live test) and especially warranted here given the newly-added `getOrCreateCustomerId`/`createVirtualAccount` calls have literally never run once.
+
+**Still open:**
+1. Migration `0037` needs the usual hand-paste into the hosted project's SQL Editor, then a disposable-test pass.
+2. **Set up the Flutterwave dashboard webhook and `FLUTTERWAVE_WEBHOOK_SECRET_HASH` before virtual accounts ever serve a real payer** — see the structural-gap callout above. Opay and bank_account don't have this problem (they resolve via redirect + the existing `getCharge()` poll, same as card).
+3. The actual live test (all three new methods, one each) still hasn't happened — same caveat as every method added in §24, now extended to these three.
+4. The disposable test certificate from piece 1 (`CERT-32PXA-CW8J`, Phlem Media) is real data on the hosted project — decide whether to revoke it or leave it.
+5. Not a PR yet — branch exists locally, `tsc`/`build`/`test` all clean, but this hasn't been opened for review per CLAUDE.md's git workflow.
 
 ---
 
@@ -205,12 +219,15 @@ None of this touches Paystack, which remains the higher-confidence, already-live
 | — Public directory: organization/issuer search | ✅ merged | #51 | `/directory/organizations`. See §23 |
 | — Hide apply CTAs sitewide once already applied | ✅ merged | #52 | Extends #50's footer fix to homepage/pricing/about/how-it-works/for-businesses. See §23 |
 | — Dashboard light/dark theme toggle | ✅ merged | #53 | Both `IssuerShell`/`StaffShell` top bars. See §23 |
-| — Flutterwave multi-method payments | 🔲 open, pending review | #54 | Mobile money, USSD alongside card (bank transfer attempted, hit a live bug, removed). Migration 0036 applied. Also fixed: wrong v4 API host, wrong charge-status string. See §24 |
+| — Flutterwave multi-method payments | ✅ merged | #54 | Mobile money, USSD alongside card (bank transfer attempted, hit a live bug, removed). Migration 0036 applied. Also fixed: wrong v4 API host, wrong charge-status string. See §24 |
+| — Brand refresh (real seal/logo) + Opay/bank-account/virtual-account | 🔲 not yet a PR | — | branch `brand-refresh-and-flutterwave-methods`. Migration 0037 not yet applied. See §25 |
 
-47 PRs merged, 1 open (#54, this session's own work) as of this writing,
-plus a stale unrelated docs-only PR (#23) nobody's acted on. `main` builds
-clean (`npx tsc --noEmit`, `npm run build`, `npm test` — 20/20) as of
-`4a93fe9` (PR #53); PR #54's branch builds equally clean on top of it.
+48 PRs merged as of this writing, plus a stale unrelated docs-only PR (#23)
+nobody's acted on, and this session's own work sitting on an unopened
+branch (§25). `main` builds clean (`npx tsc --noEmit`, `npm run build`,
+`npm test` — 20/20) as of `a78bdf9` (PR #54); the
+`brand-refresh-and-flutterwave-methods` branch builds equally clean on top
+of it.
 
 ---
 
