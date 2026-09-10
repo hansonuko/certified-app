@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual, randomUUID } from 'crypto';
 import type { PaymentProvider, WebhookEvent } from './provider';
 import { encryptCard } from './flutterwave-crypto';
+import { API_BASE, requireEnv, parseJsonResponse, getAccessToken } from './flutterwave-client';
 
 /**
  * Flutterwave v4 — NOT v3. This file was originally written against v3's
@@ -71,76 +72,39 @@ import { encryptCard } from './flutterwave-crypto';
  * Recommend a real test charge (card, mobile money, and USSD — one each)
  * before treating this as solid. See docs/session-handoff.md's Flutterwave
  * sections for the full history.
+ *
+ * **Update — Opay and bank_account added.** A direct fetch of Flutterwave's
+ * own OpenAPI reference (developer.flutterwave.com/reference/
+ * orchestration_direct_charge_post, .md suffix for the raw content) —
+ * higher-confidence than the third-party cross-referencing above, since
+ * it's the provider's own schema rather than someone else's integration —
+ * confirms the `payment_method.type` union really is `card | bank_account |
+ * mobile_money | opay | applepay | googlepay | ussd` and that both `opay`
+ * and `bank_account` request with an empty body object (see the union's own
+ * comment below). This is still no substitute for a live test: same
+ * "unverified end-to-end" caveat as everything else in this file.
  */
-
-const TOKEN_URL = 'https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token';
-// v4's orchestrator endpoints (this file) live on a different host than
-// v3's `api.flutterwave.com` — see this file's header for how that was
-// caught (a live "Cannot POST" 404 on the wrong host, for every method).
-const API_BASE = 'https://f4bexperience.flutterwave.com';
-
-let cachedToken: { accessToken: string; expiresAt: number } | null = null;
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not configured.`);
-  return value;
-}
-
-/**
- * `res.json()` throws an opaque "Unexpected token ... is not valid JSON"
- * SyntaxError when the server (or a proxy/gateway in front of it) returns a
- * plain-text or HTML body instead — exactly what happened live for the
- * removed bank_transfer request (a bare `Cannot POST /orchestration/
- * direct-charges`, from hitting the wrong host, see this file's header).
- * Reads the body as text first so a non-JSON response surfaces its actual
- * content (truncated) as a clear error instead of a cryptic parse failure.
- */
-async function parseJsonResponse(res: Response): Promise<{ ok: true; json: any } | { ok: false; error: string }> {
-  const text = await res.text();
-  try {
-    return { ok: true, json: text ? JSON.parse(text) : {} };
-  } catch {
-    const snippet = text.slice(0, 200).trim();
-    return { ok: false, error: `Flutterwave returned a non-JSON response (HTTP ${res.status}): ${snippet || '(empty body)'}` };
-  }
-}
-
-async function getAccessToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 5_000) {
-    return cachedToken.accessToken;
-  }
-
-  const res = await fetch(TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: requireEnv('FLUTTERWAVE_CLIENT_ID'),
-      client_secret: requireEnv('FLUTTERWAVE_CLIENT_SECRET'),
-      grant_type: 'client_credentials',
-    }),
-  });
-  const parsed = await parseJsonResponse(res);
-  if (!parsed.ok) throw new Error(parsed.error);
-  const json = parsed.json;
-  if (!res.ok || !json.access_token) {
-    throw new Error(json.error_description || 'Could not obtain a Flutterwave access token.');
-  }
-
-  cachedToken = { accessToken: json.access_token, expiresAt: Date.now() + (json.expires_in ?? 300) * 1000 };
-  return cachedToken.accessToken;
-}
 
 /**
  * The payment methods this integration supports as directly-requestable
  * `payment_method.type` values on POST /orchestration/direct-charges — see
  * this file's header for why `bank_transfer` isn't one of them despite
- * being a real v4 concept.
+ * being a real v4 concept (that's `lib/payments/flutterwave-virtual-
+ * accounts.ts` instead — a different pair of endpoints entirely, not this
+ * one).
+ *
+ * `opay` and `bank_account` both request with an empty body object — the
+ * type discriminator alone is the whole request; Flutterwave returns a
+ * `next_action.redirect_url` for the payer to authorize on (OPay's app, or
+ * Mono's bank-selection page for `bank_account`), the same redirect shape
+ * card's 3DS step already uses below. Both are NGN-only per Flutterwave's
+ * own docs (developer.flutterwave.com/docs/opay,
+ * developer.flutterwave.com/docs/ng-bank-account) — enforced by
+ * `methodMatchesCurrency` in app/dashboard/billing/actions.ts, not here.
  *
  * Left out deliberately (not because they're hard, but because nothing in
- * this codebase can validate or exercise them yet): `bank_account` (direct
- * debit from an already-linked account — a different, mandate-based flow,
- * not a one-off top-up), `applepay`/`googlepay`/`opay`.
+ * this codebase can validate or exercise them yet): `applepay`/`googlepay`
+ * (need native wallet integration on the client this app doesn't have).
  */
 export type FlutterwavePaymentMethod =
   | { type: 'card'; card: { number: string; expiryMonth: string; expiryYear: string; cvv: string; holderName?: string } }
@@ -151,7 +115,15 @@ export type FlutterwavePaymentMethod =
   // Nigeria only — `accountBank` is the payer's own bank's NIP code (e.g.
   // "044" for Access Bank), per the documented `^\d{3,}$` pattern; see
   // lib/payments/flutterwave-options.ts for the list surfaced in the form.
-  | { type: 'ussd'; ussd: { accountBank: string } };
+  | { type: 'ussd'; ussd: { accountBank: string } }
+  // Nigeria only. OPay's own app handles authorization after the redirect —
+  // nothing else to collect on our side.
+  | { type: 'opay' }
+  // Nigeria only. "Pay with Bank" — an instant NGN bank-account debit via
+  // Flutterwave's Mono-powered redirect flow: the payer picks their bank and
+  // authorizes (internet banking, OTP, or their bank's own USSD code) on
+  // Mono's page, not ours. Nothing to collect here either.
+  | { type: 'bank_account' };
 
 export type DirectChargeParams = {
   reference: string; // also used as the idempotency key
@@ -195,6 +167,10 @@ function buildPaymentMethodBody(method: FlutterwavePaymentMethod, encryptedCard?
       };
     case 'ussd':
       return { type: 'ussd', ussd: { account_bank: method.ussd.accountBank } };
+    case 'opay':
+      return { type: 'opay', opay: {} };
+    case 'bank_account':
+      return { type: 'bank_account', bank_account: {} };
   }
 }
 
